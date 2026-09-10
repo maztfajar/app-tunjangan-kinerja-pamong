@@ -1,0 +1,233 @@
+/* ==========================================================================
+   REPORT TABLE STYLES (STANDAR NASKAH DINAS PREVIEW CETAK / PDF)
+   HANYA berlaku saat mencetak (Print Preview / Export PDF).
+   TIDAK merubah atau mempengaruhi tampilan layar Menu Laporan Kinerja Pegawai.
+   ========================================================================== */
+
+@media print {
+  /* Reset bayangan (box-shadow, text-shadow, filter) agar kertas cetak bersih total */
+  *,
+  *::before,
+  *::after {
+    box-shadow: none !important;
+    text-shadow: none !important;
+    filter: none !important;
+  }
+
+  /* Pastikan seluruh container dan body berlatar putih bersih tanpa gradasi/tint */
+  html,
+  body,
+  .app-container,
+  .app-main,
+  .app-content {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    box-shadow: none !important;
+  }
+
+  /* 1. Reset font seluruh elemen naskah laporan & tabel menggunakan Times New Roman */
+  .laporan-table,
+  .laporan-table th,
+  .laporan-table td,
+  .laporan-table p,
+  .laporan-table span,
+  .laporan-doc-title,
+  .laporan-doc-subtitle,
+  .laporan-table-header-info,
+  .laporan-table-header-info td {
+    font-family: 'Times New Roman', Times, 'Liberation Serif', serif !important;
+  }
+
+  /* 2. Judul Dokumen Cetak (12pt, Bold, Underline) */
+  .laporan-doc-title {
+    font-size: 12pt !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    text-decoration: underline !important;
+    color: #000000 !important;
+    margin: 0 0 4px 0 !important;
+    text-align: center !important;
+  }
+
+  .laporan-doc-subtitle {
+    font-size: 11pt !important;
+    font-weight: 700 !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    text-align: center !important;
+  }
+
+  /* 3. Struktur Tabel Utama saat Cetak:
+     - Border solid 1px, warna abu gelap (#444444), bukan hitam pekat
+     - Font: Times New Roman 11pt
+     - Background putih
+  */
+  .laporan-table {
+    width: 100% !important;
+    min-width: 0 !important;
+    border-collapse: collapse !important;
+    border: 1px solid #444444 !important;
+    font-family: 'Times New Roman', Times, 'Liberation Serif', serif !important;
+    font-size: 11pt !important;
+    color: #000000 !important;
+    background-color: #ffffff !important;
+    background: #ffffff !important;
+    table-layout: fixed !important;
+    margin: 0 !important;
+    margin-bottom: 0 !important;
+  }
+
+  /* 4. HEADER TABEL SAAT CETAK:
+     - Background header: Putih bersih (#ffffff), bebas bayangan warna/arsiran
+     - Teks header: hitam, bold (font-weight: 700)
+     - Border tabel: solid 1px, warna abu gelap (#444)
+     - Font: 11pt
+  */
+  .laporan-table th {
+    background-color: #ffffff !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-weight: 700 !important;
+    font-size: 11pt !important;
+    border: 1px solid #444444 !important;
+    padding: 8px 6px !important;
+    text-align: center !important;
+    vertical-align: middle !important;
+    line-height: 1.3 !important;
+    text-transform: uppercase !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* 5. ISI SEL TABEL SAAT CETAK:
+     - Border solid 1px, warna abu gelap (#444)
+     - Font: Times New Roman 11pt
+     - Teks: hitam (#000000)
+     - Background: putih bersih (#ffffff)
+  */
+  .laporan-table td {
+    border: 1px solid #444444 !important;
+    font-size: 11pt !important;
+    color: #000000 !important;
+    padding: 6px 8px !important;
+    vertical-align: top !important;
+    line-height: 1.35 !important;
+    background-color: #ffffff !important;
+    background: #ffffff !important;
+  }
+
+  .laporan-table td,
+  .laporan-table td * {
+    color: #000000 !important;
+    font-family: 'Times New Roman', Times, 'Liberation Serif', serif !important;
+    font-size: 11pt !important;
+  }
+
+  /* 6. KOLOM KATEGORI (NO & RENCANA KEGIATAN)
+     - Teks pada kolom RENCANA KEGIATAN dibuat bold
+  */
+  .laporan-table td.td-rencana {
+    font-weight: 700 !important;
+    color: #000000 !important;
+    text-align: left !important;
+  }
+
+  .laporan-table td.td-no {
+    text-align: center !important;
+    color: #000000 !important;
+    font-weight: 600 !important;
+  }
+
+  .laporan-table td.td-target,
+  .laporan-table td.td-capaian {
+    text-align: center !important;
+    color: #000000 !important;
+  }
+
+  .laporan-table td.td-keterangan {
+    text-align: left !important;
+    color: #000000 !important;
+  }
+
+  .laporan-table td.td-pedoman,
+  .laporan-table td.td-pedoman * {
+    text-align: left !important;
+    color: #333333 !important;
+    font-style: italic !important;
+    font-size: 10.5pt !important;
+  }
+
+  /* 7. LIST PENOMORAN a. b. c. (HANGING INDENT KHUSUS CETAK) */
+  .laporan-table .output-item-wrap {
+    padding-left: 16px !important;
+    text-indent: -16px !important;
+    margin: 0 !important;
+    line-height: 1.4 !important;
+    color: #000000 !important;
+    text-align: left !important;
+    word-break: break-word !important;
+  }
+
+  .laporan-table .output-item-wrap .output-kode {
+    display: inline-block !important;
+    width: 16px !important;
+    margin-right: 0 !important;
+    font-weight: 600 !important;
+    color: #000000 !important;
+    text-align: left !important;
+  }
+
+  .laporan-table .output-item-wrap .output-text {
+    color: #000000 !important;
+  }
+
+  /* 8. Container Card & Wrapper Reset saat Cetak */
+  .laporan-table-card,
+  .laporan-table-wrapper {
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    overflow: visible !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* 9. Sembunyikan kolom Status dan Aksi saat cetak */
+  .col-status,
+  .col-aksi,
+  .th-status,
+  .th-aksi,
+  .td-status,
+  .td-aksi {
+    display: none !important;
+    visibility: hidden !important;
+    width: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+  }
+
+  /* 10. Proporsi 7 kolom resmi cetak */
+  .col-no { width: 5% !important; }
+  .col-rencana { width: 22% !important; }
+  .col-output { width: 22% !important; }
+  .col-target { width: 9% !important; }
+  .col-capaian { width: 9% !important; }
+  .col-keterangan { width: 20% !important; }
+  .col-pedoman { width: 13% !important; }
+
+  /* 11. Garis Penutup Tabel Saat Cetak Sebelum Pemisahan Halaman */
+  .laporan-table tfoot {
+    display: table-footer-group !important;
+  }
+  .laporan-table tfoot td {
+    padding: 0 !important;
+    margin: 0 !important;
+    height: 1px !important;
+    border: none !important;
+    border-bottom: 1px solid #444444 !important;
+  }
+}

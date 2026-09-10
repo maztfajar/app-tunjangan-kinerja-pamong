@@ -30,8 +30,13 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# env files — jangan commit file .env asli, tapi .env.example boleh
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+# .env.example SENGAJA TIDAK diabaikan — harus masuk ke repository
 
 # vercel
 .vercel
@@ -39,3 +44,15 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+certificates
+*.zip
+
+# database
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# IDE
+.vscode/

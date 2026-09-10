@@ -1,26 +1,1809 @@
 @import "tailwindcss";
+@import "./report-table.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  --color-primary-50: #eff2ff;
+  --color-primary-100: #dbe4ff;
+  --color-primary-200: #bac8ff;
+  --color-primary-300: #91a7ff;
+  --color-primary-400: #748ffc;
+  --color-primary-500: #4361ee;
+  --color-primary-600: #3f37c9;
+  --color-primary-700: #3a0ca3;
+  --color-primary-800: #1e1b4b;
+  --color-primary-900: #0f172a;
+
+  --color-emerald-50: #f0fdf4;
+  --color-emerald-400: #4ade80;
+  --color-emerald-500: #22c55e;
+  --color-emerald-600: #16a34a;
+
+  --color-amber-50: #fffbeb;
+  --color-amber-400: #fbbf24;
+  --color-amber-500: #f59e0b;
+
+  --color-rose-50: #fff1f2;
+  --color-rose-400: #fb7185;
+  --color-rose-500: #f43f5e;
+
+  --color-slate-50: #f8fafc;
+  --color-slate-100: #f1f5f9;
+  --color-slate-200: #e2e8f0;
+  --color-slate-300: #cbd5e1;
+  --color-slate-400: #94a3b8;
+  --color-slate-500: #64748b;
+  --color-slate-600: #475569;
+  --color-slate-700: #334155;
+  --color-slate-800: #1e293b;
+  --color-slate-900: #0f172a;
+  --color-slate-950: #020617;
+
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* Base styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  scroll-behavior: smooth;
+  touch-action: manipulation;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  background-color: #f8fafc;
+  color: #1e293b;
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
 }
+
+/* Safe area padding helper */
+.safe-top {
+  padding-top: max(12px, env(safe-area-inset-top));
+}
+
+.safe-bottom {
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+}
+
+/* Crisp Clean White Cards */
+.glass-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+}
+
+.glass-card:hover {
+  border-color: #cbd5e1;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+}
+
+.glass-card-static {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
+}
+
+/* Layout Architecture */
+.app-container {
+  display: flex;
+  min-height: 100vh;
+  position: relative;
+  width: 100%;
+  background-color: #f8fafc;
+}
+
+/* Clean White Sidebar */
+.app-sidebar {
+  background: #ffffff;
+  border-right: 1px solid #e2e8f0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 60;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.04);
+}
+
+/* Desktop Sidebar */
+@media (min-width: 1024px) {
+  .app-sidebar {
+    width: 270px;
+    transform: translateX(0) !important;
+    box-shadow: none;
+    transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .app-sidebar.collapsed {
+    width: 70px;
+    overflow: visible;
+  }
+
+  .app-sidebar.collapsed .sidebar-header-text,
+  .app-sidebar.collapsed .sidebar-section-label,
+  .app-sidebar.collapsed .sidebar-badge-card,
+  .app-sidebar.collapsed .sidebar-profile-info,
+  .app-sidebar.collapsed .sidebar-logout-text {
+    display: none !important;
+  }
+
+  .app-sidebar.collapsed .sidebar-link span {
+    display: none !important;
+  }
+
+  .app-sidebar.collapsed .sidebar-link {
+    justify-content: center !important;
+    padding: 11px 0 !important;
+    position: relative;
+    width: 100%;
+  }
+
+  /* Tooltip on hover for collapsed sidebar links */
+  .app-sidebar.collapsed .sidebar-link::after,
+  .app-sidebar.collapsed .sidebar-profile-card::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    left: calc(100% + 10px);
+    top: 50%;
+    transform: translateY(-50%);
+    background: #1e293b;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 5px 10px;
+    border-radius: 6px;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    z-index: 999;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  }
+
+  .app-sidebar.collapsed .sidebar-link:hover::after,
+  .app-sidebar.collapsed .sidebar-profile-card:hover::after {
+    opacity: 1;
+  }
+
+  .app-sidebar.collapsed .sidebar-header-logo {
+    justify-content: center !important;
+  }
+
+  .app-sidebar.collapsed .sidebar-profile-card {
+    padding: 8px 0 !important;
+    justify-content: center !important;
+  }
+}
+
+/* Mobile & Tablet Drawer */
+@media (max-width: 1023px) {
+  .app-sidebar {
+    width: 280px;
+    max-width: 80vw;
+    transform: translateX(-100%);
+    box-shadow: 6px 0 30px rgba(0, 0, 0, 0.18);
+    visibility: hidden;
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), visibility 0s linear 0.3s;
+  }
+
+  .app-sidebar.open {
+    transform: translateX(0);
+    visibility: visible;
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), visibility 0s linear 0s;
+  }
+}
+
+/* Responsive Main Area */
+.app-main {
+  flex: 1;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  background-color: #f8fafc;
+  transition: margin-left 0.3s ease, width 0.3s ease;
+}
+
+@media (min-width: 1024px) {
+  .app-main {
+    margin-left: 270px;
+    width: calc(100% - 270px);
+    padding-bottom: 40px;
+    transition: margin-left 0.3s cubic-bezier(0.16, 1, 0.3, 1), width 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .app-main.sidebar-collapsed {
+    margin-left: 70px;
+    width: calc(100% - 70px);
+  }
+}
+
+@media (max-width: 1023px) {
+  .app-main {
+    margin-left: 0 !important;
+    width: 100% !important;
+    padding-bottom: 88px; /* Space for sticky Bottom Navigation Bar */
+  }
+}
+
+/* Responsive Page Content Padding */
+.app-content {
+  width: 100%;
+  overflow-x: hidden;
+}
+
+@media (min-width: 1024px) {
+  .app-content {
+    padding: 32px;
+  }
+}
+
+@media (max-width: 1023px) {
+  .app-content {
+    padding: 14px 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .app-content {
+    padding: 12px 10px;
+  }
+}
+
+/* Sidebar links */
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  border-radius: 10px;
+  color: #475569;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.15s ease;
+  min-height: 42px;
+}
+
+.sidebar-link:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.sidebar-link.active {
+  background: #eff2ff;
+  color: #4361ee;
+  border: 1px solid #dbe4ff;
+  font-weight: 700;
+}
+
+.sidebar-link.active svg {
+  stroke: #4361ee;
+}
+
+/* ========================================================
+   BOTTOM NAVIGATION BAR (Clean White for Mobile - Large & Scrollable)
+   ======================================================== */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 55;
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  scroll-behavior: smooth;
+  padding: 6px 12px max(8px, env(safe-area-inset-bottom)) 12px;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08);
+  gap: 6px;
+}
+
+.bottom-nav::-webkit-scrollbar {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .bottom-nav {
+    display: none !important;
+  }
+}
+
+.bottom-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 6px 12px;
+  color: #64748b;
+  text-decoration: none;
+  font-size: 11px;
+  font-weight: 600;
+  flex: 0 0 auto;
+  min-width: 74px;
+  border-radius: 12px;
+  transition: all 0.2s ease;
+  position: relative;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  text-align: center;
+}
+
+.bottom-nav-item span {
+  font-size: 11px;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  text-align: center;
+  white-space: nowrap;
+  font-weight: 600;
+  color: #64748b;
+  display: block;
+}
+
+.bottom-nav-item .nav-icon {
+  font-size: 24px;
+  line-height: 1;
+  transition: transform 0.2s ease;
+}
+
+.bottom-nav-item.active {
+  color: #4361ee;
+  background: #eff6ff;
+}
+
+.bottom-nav-item.active span {
+  color: #4361ee;
+  font-weight: 700;
+}
+
+.bottom-nav-item.active .nav-icon {
+  transform: scale(1.1) translateY(-1px);
+}
+
+.bottom-nav-item.active::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 20%;
+  right: 20%;
+  height: 3px;
+  border-radius: 0 0 3px 3px;
+  background: #4361ee;
+}
+
+/* ========================================================
+   RESPONSIVE LAPORAN KINERJA (SMARTPHONE COMPACT)
+   ======================================================== */
+.laporan-stat-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.laporan-stat-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 220px;
+  flex: 1;
+  max-width: 280px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.laporan-table-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+}
+
+.laporan-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  background: #ffffff;
+}
+
+.laporan-table {
+  width: 100%;
+  min-width: 1050px;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 14px;
+  color: #334155;
+  background: #ffffff;
+}
+
+.laporan-table th {
+  padding: 16px 10px;
+  border: none;
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: #ffffff;
+  border-bottom: 1.5px solid #e2e8f0;
+  text-align: center;
+}
+
+.laporan-table td {
+  padding: 18px 10px;
+  vertical-align: top;
+  border: none;
+  line-height: 1.5;
+}
+
+.laporan-rencana-cell {
+  padding: 14px 20px;
+  font-weight: 700;
+  color: #1e293b;
+  font-size: 14px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.laporan-row {
+  border-bottom: 1px solid #f1f5f9;
+  background: #ffffff;
+  transition: background 0.15s ease;
+}
+
+.laporan-row:hover {
+  background: #f8fafc;
+}
+
+.laporan-badge-status {
+  display: inline-block;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.laporan-badge-status.approved {
+  background: #22c55e;
+  color: #ffffff;
+  box-shadow: 0 1px 2px rgba(34, 197, 94, 0.2);
+}
+
+.laporan-badge-status.pending {
+  background: #f1f5f9;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.laporan-action-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+/* Colgroup standard widths */
+.col-no { width: 48px; }
+.col-rencana { width: 21%; }
+.col-output { width: 22%; }
+.col-target { width: 80px; }
+.col-capaian { width: 80px; }
+.col-keterangan { width: 20%; }
+.col-pedoman { width: 15%; }
+.col-status { width: 120px; }
+.col-aksi { width: 65px; }
+
+.output-item-wrap {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  width: 100%;
+}
+
+.output-kode {
+  flex-shrink: 0;
+  width: 18px;
+  min-width: 18px;
+  font-weight: 600;
+  color: #1e293b;
+  text-align: left;
+  line-height: 1.5;
+}
+
+.output-text {
+  flex: 1;
+  color: #1e293b;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+/* ========================================================
+   SMARTPHONE COMPACT MODE FOR LAPORAN TABLE (< 768px)
+   Diperkecil dan disesuaikan agar tetap dapat terbaca
+   ======================================================== */
+@media (max-width: 768px) {
+  .laporan-stat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .laporan-stat-card {
+    padding: 12px 14px;
+    min-width: 0;
+    max-width: none;
+    gap: 10px;
+  }
+
+  .laporan-stat-card .stat-icon-wrap {
+    width: 32px !important;
+    height: 32px !important;
+    font-size: 14px !important;
+  }
+
+  .laporan-stat-card .stat-label {
+    font-size: 11px !important;
+  }
+
+  .laporan-stat-card .stat-value {
+    font-size: 18px !important;
+  }
+
+  .mobile-table-scroll-hint {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-size: 11px;
+    color: #475569;
+    background: #f1f5f9;
+    border: 1px dashed #cbd5e1;
+    border-radius: 8px;
+    padding: 7px 10px;
+    margin-bottom: 8px;
+    font-weight: 500;
+  }
+
+  .laporan-table {
+    min-width: 820px !important;
+    font-size: 11.5px !important;
+  }
+
+  .laporan-table th {
+    padding: 9px 6px !important;
+    font-size: 10px !important;
+  }
+
+  .laporan-table td {
+    padding: 8px 6px !important;
+    font-size: 11.5px !important;
+    line-height: 1.4 !important;
+  }
+
+  .laporan-rencana-cell {
+    padding: 8px 10px !important;
+    font-size: 12px !important;
+  }
+
+  /* Compact Columns on Mobile */
+  .col-no { width: 34px !important; }
+  .col-rencana { width: 150px !important; }
+  .col-output { width: 150px !important; }
+  .col-target { width: 62px !important; }
+  .col-capaian { width: 58px !important; }
+  .col-keterangan { width: 145px !important; }
+  .col-pedoman { width: 90px !important; }
+  .col-status { width: 92px !important; }
+  .col-aksi { width: 55px !important; }
+
+  .laporan-badge-status {
+    padding: 3px 6px !important;
+    font-size: 9.5px !important;
+    border-radius: 4px !important;
+  }
+
+  .laporan-action-btn {
+    width: 28px !important;
+    height: 28px !important;
+    border-radius: 6px !important;
+  }
+
+  .output-kode {
+    font-size: 12px !important;
+    margin-right: 4px !important;
+    color: #1e293b !important;
+  }
+
+  .output-text {
+    font-size: 11.5px !important;
+  }
+}
+
+/* ========================================================
+   TOP NAVBAR (Clean White)
+   ======================================================== */
+.top-navbar {
+  background: rgba(255, 255, 255, 0.97);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid #e2e8f0;
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: max(10px, env(safe-area-inset-top));
+  padding-bottom: 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  gap: 8px;
+}
+
+@media (min-width: 1024px) {
+  .top-navbar {
+    padding-left: 32px;
+    padding-right: 32px;
+  }
+}
+
+@media (max-width: 1023px) {
+  .top-navbar {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  /* Sembunyikan bar atas di smartphone saat modal/popup dibuka agar tidak menutupi pop up */
+  body.hide-top-navbar-on-modal .top-navbar,
+  body.modal-open .top-navbar,
+  body:has(.modal-overlay) .top-navbar {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+}
+
+/* Navbar left section */
+.top-navbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Sembunyikan tombol garis 3 (hamburger) di smartphone */
+@media (max-width: 1023px) {
+  .top-navbar-hamburger {
+    display: none !important;
+  }
+}
+
+/* Navbar right section */
+.top-navbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* Hide greeting text on small screens */
+@media (max-width: 480px) {
+  .top-navbar-greeting-text {
+    display: none;
+  }
+}
+
+/* Efek sentuh instan bottom nav */
+.bottom-nav-item:active {
+  transform: scale(0.92);
+  opacity: 0.85;
+}
+
+/* Profile Bottom Sheet & Modal */
+.profile-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 70;
+  animation: fadeIn 0.2s ease;
+}
+
+.profile-modal-content {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  max-width: 480px;
+  margin: 0 auto;
+  background: #ffffff;
+  border-radius: 20px 20px 0 0;
+  padding: 20px 18px max(24px, env(safe-area-inset-bottom)) 18px;
+  z-index: 75;
+  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.15);
+  animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (min-width: 768px) {
+  .profile-modal-content {
+    bottom: auto;
+    top: 64px;
+    right: 32px;
+    left: auto;
+    width: 340px;
+    border-radius: 16px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
+  }
+}
+
+/* Mobile Overlay Backdrop */
+.mobile-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  z-index: 58;
+  animation: fadeIn 0.2s ease;
+  /* Ensure backdrop is fully interactive */
+  touch-action: none;
+}
+
+/* Clean Professional Buttons matching BKN E-Kinerja */
+.btn-primary {
+  background: #4361ee;
+  color: #ffffff;
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 14px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(67, 97, 238, 0.25);
+  touch-action: manipulation;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #3b52d4;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(67, 97, 238, 0.35);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.btn-success {
+  background: #10b981;
+  color: #ffffff;
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 14px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.25);
+  touch-action: manipulation;
+}
+
+.btn-success:hover:not(:disabled) {
+  background: #059669;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.btn-success:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.btn-success:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-warning {
+  background: #f59e0b;
+  color: #ffffff;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 13px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 2px 5px rgba(245, 158, 11, 0.25);
+  touch-action: manipulation;
+}
+
+.btn-warning:hover {
+  background: #d97706;
+  transform: translateY(-1px);
+}
+
+.btn-warning:active {
+  transform: scale(0.98);
+}
+
+.btn-danger {
+  background: #ef4444;
+  color: #ffffff;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 13px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 2px 5px rgba(239, 68, 68, 0.25);
+  touch-action: manipulation;
+}
+
+.btn-danger:hover {
+  background: #dc2626;
+  transform: translateY(-1px);
+}
+
+.btn-danger:active {
+  transform: scale(0.98);
+}
+
+.btn-outline {
+  background: #ffffff;
+  color: #4361ee;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 13px;
+  border: 1px solid #4361ee;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 38px;
+  touch-action: manipulation;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+
+.btn-outline:hover {
+  background: #f0f4ff;
+  border-color: #3b52d4;
+  color: #3b52d4;
+}
+
+.btn-outline:active {
+  transform: scale(0.98);
+}
+
+/* BKN E-Kinerja Pill Badges */
+.badge-pill-blue {
+  background: #4361ee;
+  color: #ffffff;
+  border-radius: 9999px;
+  padding: 4px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+}
+
+.badge-pill-green {
+  background: #10b981;
+  color: #ffffff;
+  border-radius: 9999px;
+  padding: 4px 14px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  display: inline-flex;
+  align-items: center;
+}
+
+.badge-pill-cyan {
+  background: #0284c7;
+  color: #ffffff;
+  border-radius: 9999px;
+  padding: 4px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Sky-blue Petunjuk Panel (like E-Kinerja) */
+.petunjuk-panel {
+  background: linear-gradient(135deg, #0284c7 0%, #38bdf8 100%);
+  color: #ffffff;
+  border-radius: 12px;
+  padding: 18px 20px;
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.18);
+}
+
+/* Crisp Input Fields */
+.input-field {
+  width: 100%;
+  padding: 10px 14px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  color: #0f172a;
+  font-size: 14px;
+  font-family: var(--font-sans);
+  transition: all 0.2s ease;
+  outline: none;
+  min-height: 42px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.input-field:focus {
+  border-color: #2563eb;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.input-field::placeholder {
+  color: #94a3b8;
+}
+
+.input-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+select.input-field {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%2364748b' viewBox='0 0 16 16'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
+}
+
+textarea.input-field {
+  min-height: 85px;
+  resize: vertical;
+}
+
+/* ========================================================
+   RESPONSIVE GRIDS
+   ======================================================== */
+.responsive-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+
+@media (min-width: 768px) {
+  .responsive-grid-2 {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 18px;
+  }
+}
+
+.responsive-grid-3 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+@media (min-width: 480px) {
+  .responsive-grid-3 {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .responsive-grid-3 {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+  }
+}
+
+.presensi-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+@media (min-width: 1024px) {
+  .presensi-grid {
+    grid-template-columns: 1fr 380px;
+    gap: 20px;
+  }
+}
+
+/* Table Responsive Container */
+.table-container {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 12px;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  min-width: 580px;
+  background: #ffffff;
+}
+
+.data-table thead th {
+  padding: 14px 16px;
+  text-align: left;
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #475569;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+  white-space: nowrap;
+}
+
+.data-table tbody td {
+  padding: 14px 16px;
+  font-size: 13.5px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #334155;
+  white-space: nowrap;
+  background: #ffffff;
+}
+
+.data-table tbody td.cell-wrap {
+  white-space: normal;
+  min-width: 140px;
+  max-width: 280px;
+  line-height: 1.45;
+  vertical-align: top;
+}
+
+.data-table tbody tr {
+  transition: background 0.15s ease;
+}
+
+.data-table tbody tr:hover td {
+  background: #f8fafc;
+}
+
+/* Clean Badges */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badge-success {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.badge-warning {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.badge-danger {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.badge-info {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+/* ========================================================
+   MODAL & MOBILE BOTTOM SHEET (Clean White)
+   ======================================================== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  animation: fadeIn 0.2s ease;
+  padding: 16px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+.modal-content {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  padding: 24px;
+  max-width: 500px;
+  width: 100%;
+  max-height: 85vh;
+  max-height: 85dvh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  animation: slideUp 0.25s ease;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+  margin: auto 0;
+}
+
+@media (max-width: 640px) {
+  .modal-overlay {
+    align-items: flex-end;
+    padding: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .modal-content {
+    border-radius: 20px 20px 0 0;
+    max-width: 100%;
+    width: 100%;
+    padding: 18px 16px max(24px, env(safe-area-inset-bottom) + 12px) 16px;
+    max-height: 88vh;
+    max-height: 88dvh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    animation: slideUpMobile 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    margin: 0;
+  }
+}
+
+/* Symmetrical Filter Grid for Laporan Kinerja */
+.laporan-filter-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  width: 100%;
+  align-items: flex-start;
+}
+
+@media (max-width: 640px) {
+  .laporan-filter-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+}
+
+/* Sheet pull indicator */
+.sheet-handle {
+  width: 36px;
+  height: 4px;
+  border-radius: 4px;
+  background: #cbd5e1;
+  margin: 0 auto 14px auto;
+  display: block;
+}
+
+@media (min-width: 641px) {
+  .sheet-handle {
+    display: none;
+  }
+}
+
+/* Stat Card */
+.stat-card {
+  padding: 18px 20px;
+  border-radius: 14px;
+  position: relative;
+  overflow: hidden;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: transform 0.15s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUpMobile {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease forwards;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.3s ease forwards;
+}
+
+/* Loading spinner */
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #e2e8f0;
+  border-top-color: #2563eb;
+  border-radius: 50%;
+  animation: spin 0.75s linear infinite;
+}
+
+/* Leaflet map overrides */
+.leaflet-container {
+  border-radius: 12px;
+  z-index: 1;
+  font-family: inherit;
+  border: 1px solid #e2e8f0;
+}
+
+@keyframes user-pulse-radar {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.9;
+  }
+  70% {
+    transform: scale(2.2);
+    opacity: 0.0;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+.user-gps-marker-icon {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* Clean Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* ========================================================
+   PRINT STYLES
+   ======================================================== */
+.print-only {
+  display: none !important;
+}
+
+/* Employee card hover for clickable list */
+.employee-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 18px 20px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.employee-card:hover {
+  border-color: #93c5fd;
+  background: #f0f7ff;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px -4px rgba(37, 99, 235, 0.12);
+}
+
+.employee-card .avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  color: #ffffff;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* Print document styles */
+.print-document,
+.print-table-spacer,
+.print-table-footer {
+  display: none;
+}
+
+@media print {
+  /* Hilangkan seluruh bayangan (box-shadow, text-shadow, filter) agar kertas cetak bersih */
+  *,
+  *::before,
+  *::after {
+    box-shadow: none !important;
+    text-shadow: none !important;
+    filter: none !important;
+  }
+
+  /* Page margin for standard printout (celah atas, bawah, kanan, kiri) */
+  @page {
+    margin: 15mm 15mm !important;
+  }
+
+  /* Hide all non-print elements */
+  .app-sidebar,
+  .top-navbar,
+  .bottom-nav,
+  .mobile-backdrop,
+  .no-print,
+  .modal-overlay {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  .print-document {
+    display: block !important;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    font-family: 'Times New Roman', Times, 'Liberation Serif', serif !important;
+    font-size: 11pt !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    -webkit-font-smoothing: antialiased !important;
+    -moz-osx-font-smoothing: grayscale !important;
+    text-rendering: geometricPrecision !important;
+    box-shadow: none !important;
+  }
+
+  .app-container {
+    display: block !important;
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    box-shadow: none !important;
+  }
+
+  .app-main {
+    margin-left: 0 !important;
+    width: 100% !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    box-shadow: none !important;
+  }
+
+  .app-content {
+    padding: 0 !important;
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    box-shadow: none !important;
+  }
+
+  /* Print document layout */
+  .print-document {
+    padding: 10mm;
+    font-family: 'Times New Roman', Times, serif !important;
+    color: #000000 !important;
+    background: #ffffff !important;
+  }
+
+  .print-document .print-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    text-align: center;
+    border-bottom: 3px double #000000;
+    padding-bottom: 12px;
+    margin-bottom: 20px;
+  }
+
+  .print-document .print-header .print-header-logo {
+    width: 72px;
+    height: 72px;
+    object-fit: contain;
+    flex-shrink: 0;
+  }
+
+  .print-document .print-header .print-header-text {
+    flex: 1;
+    text-align: center;
+  }
+
+  .print-document .print-header h1 {
+    font-size: 13pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 2px;
+  }
+
+  .print-document .print-header h2 {
+    font-size: 12pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+  }
+
+  .print-document .print-header p {
+    font-size: 9.5pt;
+    margin: 1px 0;
+    line-height: 1.3;
+  }
+
+  .print-document .print-title {
+    text-align: center;
+    margin: 20px 0 16px 0;
+  }
+
+  .print-document .print-title h3 {
+    font-size: 13pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    text-decoration: underline;
+    margin-bottom: 4px;
+  }
+
+  .print-document .print-title p {
+    font-size: 10pt;
+  }
+
+  .print-document .print-info {
+    margin-bottom: 16px;
+  }
+
+  .print-document .print-info table {
+    border-collapse: collapse;
+    font-size: 11pt;
+  }
+
+  .print-document .print-info td {
+    padding: 2px 8px 2px 0;
+    vertical-align: top;
+  }
+
+  .print-document .print-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10pt;
+    margin-bottom: 20px;
+  }
+
+  .print-document .print-table th,
+  .print-document .print-table td {
+    border: 1px solid #000000;
+    padding: 6px 8px;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  .print-document .print-table th {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    font-weight: 700;
+    text-align: center;
+    font-size: 9pt;
+  }
+
+  .print-document .print-table td.center {
+    text-align: center;
+  }
+
+  .print-document .print-signature {
+    margin-top: 40px;
+    display: flex;
+    justify-content: space-between;
+    page-break-inside: avoid;
+  }
+
+  .print-document .print-signature .sign-box {
+    text-align: center;
+    min-width: 220px;
+  }
+
+  .print-document .print-signature .sign-box .sign-space {
+    height: 65px;
+  }
+
+  .print-document .print-signature .sign-box p {
+    font-size: 10pt;
+    margin: 2px 0;
+  }
+
+  .print-document .print-signature .sign-box .sign-name {
+    font-weight: 700;
+    text-decoration: underline;
+  }
+
+  /* Force page breaks */
+  .print-document {
+    page-break-before: always;
+  }
+
+  /* Default: Margin 15mm untuk standar batas kertas cetak */
+  @page {
+    margin: 15mm 15mm !important;
+  }
+
+  /* Override: F4 (215mm x 330mm) — Folio standar pemerintah RI */
+  body.print-f4:not(.print-landscape) .print-document {
+    width: 185mm;
+  }
+
+  /* Landscape print layout — auto width for wide tables */
+  body.print-landscape .print-document,
+  body.print-landscape .print-table,
+  body.print-landscape .laporan-table,
+  body.print-landscape {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Format Tabel Laporan Kinerja saat Cetak (7 Kolom Resmi) */
+  .laporan-table-card,
+  .laporan-table-wrapper {
+    overflow: visible !important;
+    width: 100% !important;
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    outline: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .laporan-table-card *,
+  .laporan-table-wrapper * {
+    box-shadow: none !important;
+    outline: none !important;
+  }
+
+  .laporan-table {
+    width: 100% !important;
+    min-width: 0 !important;
+    border-collapse: collapse !important;
+    border: 1.5px solid #000000 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    font-size: 9.5pt !important;
+    color: #000000 !important;
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    margin: 0 !important;
+    margin-bottom: 0 !important;
+    font-family: 'Times New Roman', Times, 'Liberation Serif', serif !important;
+  }
+
+
+
+  .laporan-table th,
+  .laporan-table td {
+    border: 1px solid #444444 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    padding: 6px 8px !important;
+    color: #000000 !important;
+    line-height: 1.35 !important;
+    font-family: 'Times New Roman', Times, 'Liberation Serif', serif !important;
+    font-size: 11pt !important;
+    background-color: #ffffff !important;
+    background: #ffffff !important;
+  }
+
+  .laporan-table th {
+    background-color: #ffffff !important;
+    background: #ffffff !important;
+    font-weight: 700 !important;
+    text-align: center !important;
+    font-size: 11pt !important;
+    text-transform: uppercase !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color: #000000 !important;
+    border: 1px solid #444444 !important;
+  }
+
+  .laporan-table td,
+  .laporan-table td * {
+    color: #000000 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    font-family: 'Times New Roman', Times, 'Liberation Serif', serif !important;
+    font-size: 11pt !important;
+  }
+
+  .laporan-table td.td-no,
+  .laporan-table td.td-target,
+  .laporan-table td.td-capaian {
+    text-align: center !important;
+    color: #000000 !important;
+    font-weight: 600 !important;
+  }
+
+  .laporan-table td.td-rencana {
+    font-weight: 700 !important;
+    color: #000000 !important;
+  }
+
+  .laporan-table td.td-keterangan {
+    color: #000000 !important;
+  }
+
+  .laporan-table td.td-pedoman,
+  .laporan-table td.td-pedoman * {
+    color: #333333 !important;
+    font-style: italic !important;
+    font-size: 10.5pt !important;
+  }
+
+  .list-item {
+    padding-left: 16px !important;
+    text-indent: -16px !important;
+    margin: 0 !important;
+    color: #000000 !important;
+    font-family: 'Times New Roman', Times, 'Liberation Serif', serif !important;
+    font-size: 11pt !important;
+    line-height: 1.4 !important;
+    text-align: left !important;
+    word-break: break-word !important;
+  }
+
+  /* Sembunyikan kolom Status dan Aksi saat cetak */
+  .col-status,
+  .col-aksi,
+  .th-status,
+  .th-aksi,
+  .td-status,
+  .td-aksi {
+    display: none !important;
+    visibility: hidden !important;
+    width: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+  }
+
+  /* Proporsi 7 kolom resmi cetak */
+  .col-no { width: 5% !important; }
+  .col-rencana { width: 22% !important; }
+  .col-output { width: 22% !important; }
+  .col-target { width: 9% !important; }
+  .col-capaian { width: 9% !important; }
+  .col-keterangan { width: 20% !important; }
+  .col-pedoman { width: 13% !important; }
+
+  /* Garis Penutup Tabel Saat Cetak Sebelum Pemisahan Halaman */
+  .laporan-table tfoot {
+    display: table-footer-group !important;
+  }
+  .laporan-table tfoot td {
+    padding: 0 !important;
+    margin: 0 !important;
+    height: 1px !important;
+    border: none !important;
+    border-bottom: 1px solid #444444 !important;
+  }
+}
+
+/* Landscape page size override — injected dynamically via <style> tag on print */
+@media print {
+  body.print-f4 {
+    /* Override @page for F4 */
+  }
+}
+
+

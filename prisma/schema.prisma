@@ -1,0 +1,284 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-1.1.x", "debian-openssl-3.0.x", "rhel-openssl-1.1.x", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPERADMIN
+  ADMIN
+  PEGAWAI
+}
+
+model User {
+  id        String   @id @default(cuid())
+  nip       String   @unique
+  nama      String
+  password  String
+  jabatan   String?
+  unitKerja String?
+  role      Role     @default(PEGAWAI)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  presensi       Presensi[]
+  tasks          Task[]
+
+  aktifitas      Aktifitas[]
+  laporan        Laporan[]
+  agenda         Agenda[]
+  laporanKinerja LaporanKinerja[]
+  biometrics     BiometricCredential[]
+}
+
+model LokasiKantor {
+  id         String   @id @default(cuid())
+  namaLokasi String
+  latitude   Float
+  longitude  Float
+  radius     Int      @default(100)
+  updatedAt  DateTime @updatedAt
+}
+
+model JamKerja {
+  id                     String   @id @default(cuid())
+  jamMasuk               String   @default("07:30")
+  jamPulang              String   @default("15:45")
+  toleransiSebelumMasuk  Int      @default(30)   // menit — absen masuk dibuka X menit sebelum jam masuk
+  toleransiKeterlambatan Int      @default(15)   // menit — batas telat yang masih dimaafkan (jam pulang tetap mundur)
+  toleransiPulang        Int      @default(120)  // menit — setelah target pulang, batas absen ditutup
+  durasiKerjaMenit       Int      @default(495)  // 8 jam 15 menit = 495 menit
+  updatedAt              DateTime @updatedAt
+}
+
+model Presensi {
+  id               String    @id @default(cuid())
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tanggal          DateTime  @default(now())
+  jamMasuk         DateTime?
+  jamPulang        DateTime?
+  latMasuk         Float?
+  lngMasuk         Float?
+  latPulang        Float?
+  lngPulang        Float?
+  statusMasuk      String?   // "Tepat Waktu", "Telat dalam toleransi", "Terlambat"
+  keterlambatan    Int?      // menit terlambat dari jam masuk standar
+  mendahului       Int?      // menit pulang cepat (sebelum target jam pulang)
+  persenTerlambat  Float?    // (keterlambatan / durasiKerja) * 100
+  persenMendahului Float?    // (mendahului / durasiKerja) * 100
+  targetJamPulang  DateTime? // jam pulang target hari ini (mundur jika terlambat)
+  durasiKerjaMenit Int?      // durasi kerja aktual dalam menit
+  persentaseHarian Float?    // min(100, (durasiAktual / durasiStandar) * 100)
+  keterangan       String?   // "e-presensi", "Libur", dll.
+  lokasiTugas      String?
+  suket            String?
+  createdAt        DateTime  @default(now())
+}
+
+model Aktifitas {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deskripsi String
+  foto      String?
+  lokasi    String?
+  latitude  Float?
+  longitude Float?
+  task      Task?
+
+  createdAt DateTime @default(now())
+}
+
+model Task {
+  id           String     @id @default(cuid())
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pemberiTugas String
+  hal          String
+  keterangan   String?
+  lokasi       String?
+  waktu        DateTime
+  status       String     @default("Belum Dikerjakan")
+  aktifitasId  String?    @unique
+  aktifitas    Aktifitas? @relation(fields: [aktifitasId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+model Laporan {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bulan      String
+  rencana    String
+  output     String
+  target     Int
+  capaian    Int
+  satuan     String
+  keterangan String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Agenda {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  judul     String
+  tanggal   DateTime
+  lokasi    String?
+  catatan   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model HariLibur {
+  id         String   @id @default(cuid())
+  tanggal    DateTime
+  keterangan String
+  sumber     String   @default("manual") // 'otomatis' | 'manual'
+  isLibur    Boolean  @default(true)     // true = Libur, false = Dibatalkan (Hari Masuk Kerja)
+  dibuatOleh String?
+  createdAt  DateTime @default(now())
+}
+
+model AppSettings {
+  id               String   @id @default("default")
+  namaApp          String   @default("E-KINERJA")
+  namaKantor       String   @default("Kalurahan")
+  subJudul         String   @default("Sistem Informasi Pamong")
+  logoUrl          String?  @db.Text
+
+  // Format Kop Laporan Dokumen
+  kopLogoUrl       String?  @db.Text
+  kopNamaPemda     String?  @default("Pemerintah Kabupaten Kulon Progo")
+  kopNamaInstansi  String?  @default("Kapanewon Pengasih")
+  kopAlamat        String?  @default("Jl. Pengasih No. 2, Pengasih, Kulon Progo, DIY 55652")
+  kopKontak        String?  @default("Telp. (0274) 773422")
+
+  // Ukuran Kertas Cetak & Orientasi Dokumen
+  ukuranKertas     String?  @default("A4")         // "A4" | "F4"
+  posisiDokumen    String?  @default("portrait")   // "portrait" | "landscape"
+  sembunyikanNip   Boolean? @default(false)        // true = sembunyikan NIP (pamong kalurahan tidak memakai NIP)
+
+  // Format Tanda Tangan Dokumen
+  ttdTempat        String?  @default("Pengasih")
+  ttdJudulKiri     String?  @default("Yang Membuat Laporan")
+  ttdAtasanUserId  String?
+  ttdAtasanStatus  String?  @default("Mengetahui,")
+  ttdAtasanJabatan String?  @default("Panewu Pengasih")
+  ttdAtasanNama    String?  @default(".................................")
+  ttdAtasanNip     String?  @default(".................................")
+
+  updatedAt        DateTime @updatedAt
+}
+
+model MasterJabatan {
+  id              String            @id @default(cuid())
+  nama            String            @unique
+  kategori        String?           @default("Pamong")
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  kegiatan        KegiatanJabatan[]
+  rencanaKegiatan RencanaKegiatan[]
+}
+
+// Master daftar kegiatan kinerja per jabatan (legacy)
+model KegiatanJabatan {
+  id               String        @id @default(cuid())
+  jabatanId        String
+  jabatan          MasterJabatan @relation(fields: [jabatanId], references: [id], onDelete: Cascade)
+  urutan           Int           @default(0)
+  rencanaKegiatan  String
+  output           String
+  target           String
+  pedomanPengisian String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@index([jabatanId])
+}
+
+model RencanaKegiatan {
+  id              Int              @id @default(autoincrement())
+  jabatanId       String           @map("jabatan_id")
+  noUrut          Int              @map("no_urut")
+  rencanaKegiatan String           @map("rencana_kegiatan")
+  isActive        Boolean          @default(true) @map("is_active")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  jabatan         MasterJabatan    @relation(fields: [jabatanId], references: [id], onDelete: Cascade)
+  outputs         OutputKegiatan[]
+
+  @@map("m_rencana_kegiatan")
+}
+
+model OutputKegiatan {
+  id                Int              @id @default(autoincrement())
+  rencanaKegiatanId Int              @map("rencana_kegiatan_id")
+  kodeHuruf         String           @map("kode_huruf")
+  output            String
+  pedomanPengisian  String?          @map("pedoman_pengisian")
+  noUrut            Int              @map("no_urut")
+  isActive          Boolean          @default(true) @map("is_active")
+  createdAt         DateTime         @default(now()) @map("created_at")
+  updatedAt         DateTime         @updatedAt @map("updated_at")
+
+  rencanaKegiatan   RencanaKegiatan  @relation(fields: [rencanaKegiatanId], references: [id], onDelete: Cascade)
+  laporan           LaporanKinerja[]
+
+  @@map("m_output_kegiatan")
+}
+
+model LaporanKinerja {
+  id         Int            @id @default(autoincrement())
+  outputId   Int            @map("output_id")
+  userId     String         @map("user_id")
+  periode    DateTime       // simpan sbg tanggal 1 di bulan berjalan, mis. 2026-09-01
+  target     String?
+  capaian    String?
+  keterangan String?        // nama kegiatan pelaksanaan
+  status     String         @default("draft")
+  createdAt  DateTime       @default(now()) @map("created_at")
+  updatedAt  DateTime       @updatedAt @map("updated_at")
+
+  output     OutputKegiatan @relation(fields: [outputId], references: [id], onDelete: Cascade)
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([outputId, userId, periode])
+  @@map("t_laporan_kinerja")
+}
+
+model MasterUnitKerja {
+  id        String   @id @default(cuid())
+  nama      String   @unique
+  kategori  String?  @default("Kalurahan")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model BiometricCredential {
+  id           String   @id @default(cuid())
+  userId       String
+  credentialId String   @unique
+  publicKey    String
+  counter      Int      @default(0)
+  deviceLabel  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+
