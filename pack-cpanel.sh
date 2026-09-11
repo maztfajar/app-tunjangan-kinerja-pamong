@@ -75,13 +75,21 @@ echo "   ✅ File statis Next.js disalin."
 
 # 5. Salin file utilitas ke dalam standalone
 echo ""
-echo "📋 Menyalin file konfigurasi dan skrip utilitas..."
+echo "📋 Menyalin file konfigurasi, storage, dan skrip utilitas..."
 cp server.js         .next/standalone/server.js
 cp app.js            .next/standalone/app.js
 cp check-db.js       .next/standalone/check-db.js
 cp setup-db.js       .next/standalone/setup-db.js
 cp .env.example      .next/standalone/.env.example
+cp .env.example      .next/standalone/.env
 cp -r prisma         .next/standalone/prisma/
+
+# Salin folder storage (database.sqlite bawaan untuk instant publish)
+mkdir -p .next/standalone/storage
+if [ -d "storage" ]; then
+  cp -r storage/. .next/standalone/storage/
+  echo "   ✅ Folder 'storage/' (database.sqlite) disalin untuk instant publish."
+fi
 
 # Salin bcryptjs agar node prisma/seed.js bisa berjalan mandiri di hosting
 if [ -d "node_modules/bcryptjs" ]; then
@@ -90,7 +98,21 @@ if [ -d "node_modules/bcryptjs" ]; then
   echo "   ✅ Modul 'bcryptjs' disalin (untuk seeder mandiri)."
 fi
 
-echo "   ✅ File server.js, app.js, check-db.js, setup-db.js, .env.example, prisma/ disalin."
+# Salin modul @prisma/client-sqlite untuk fallback database hosting
+if [ -d "node_modules/@prisma/client-sqlite" ]; then
+  mkdir -p .next/standalone/node_modules/@prisma/client-sqlite
+  cp -r node_modules/@prisma/client-sqlite/. .next/standalone/node_modules/@prisma/client-sqlite/
+  echo "   ✅ Modul '@prisma/client-sqlite' disalin."
+fi
+
+# Pastikan binary target engine PostgreSQL juga lengkap di standalone
+if [ -d "node_modules/.prisma/client" ]; then
+  mkdir -p .next/standalone/node_modules/.prisma/client
+  cp -r node_modules/.prisma/client/. .next/standalone/node_modules/.prisma/client/
+  echo "   ✅ Modul '.prisma/client' disalin (engine PostgreSQL cPanel/VPS/Cloud)."
+fi
+
+echo "   ✅ Seluruh file konfigurasi dan engine database disalin."
 
 
 # 6. Buat paket ZIP dari folder standalone dengan kompresi maksimal (zip -9)
@@ -101,7 +123,6 @@ rm -f "$ZIP_NAME"
 cd .next/standalone
 zip -9 -r "../../$ZIP_NAME" . \
   --exclude "*.log" \
-  --exclude ".env" \
   --exclude "*/.DS_Store" \
   --exclude "*/__pycache__/*" \
   --exclude "*.tsbuildinfo" \

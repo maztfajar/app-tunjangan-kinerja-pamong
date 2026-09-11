@@ -446,15 +446,24 @@ export default function DetailLaporanPegawaiPage() {
       <div className="print-document">
         {/* Kop Surat */}
         <div className="print-header">
-          {printSettings?.kopLogoUrl && (
+          {printSettings?.kopLogoUrl ? (
             <img src={printSettings.kopLogoUrl} alt="Logo Kop" className="print-header-logo" />
+          ) : (
+            <div style={{ width: '72px', height: '72px' }} />
           )}
           <div className="print-header-text">
             <h1>{printSettings?.kopNamaPemda || 'Pemerintah Kabupaten Kulon Progo'}</h1>
             <h2>{printSettings?.kopNamaInstansi || 'Kapanewon Pengasih'}</h2>
+            {printSettings?.kopAksaraUrl && (
+              <div style={{ textAlign: 'center', margin: '3px 0 5px 0' }}>
+                <img src={printSettings.kopAksaraUrl} alt="Aksara Jawa" style={{ height: '36px', maxWidth: '90%', objectFit: 'contain', display: 'inline-block' }} />
+              </div>
+            )}
             <p>{printSettings?.kopAlamat || 'Jl. Pengasih No. 2, Pengasih, Kulon Progo, DIY 55652'}</p>
             <p>{printSettings?.kopKontak || 'Telp. (0274) 773422'}</p>
           </div>
+          {/* Spacer kanan agar teks KOP benar-benar presisi di tengah halaman */}
+          <div style={{ width: '72px', flexShrink: 0 }} />
         </div>
 
         {/* Judul Dokumen */}
@@ -545,7 +554,7 @@ export default function DetailLaporanPegawaiPage() {
             <p style={{ fontWeight: 700 }}>{printSettings?.ttdAtasanJabatan || 'Panewu Pengasih'}</p>
             <div className="sign-space"></div>
             <p className="sign-name">{printSettings?.ttdAtasanNama || '.................................'}</p>
-            {!printSettings?.sembunyikanNip && printSettings?.ttdAtasanNip ? (
+            {!printSettings?.sembunyikanNipAtasan && printSettings?.ttdAtasanNip ? (
               <p>NIP. {printSettings.ttdAtasanNip}</p>
             ) : null}
           </div>

@@ -253,23 +253,51 @@ async function handleOptionTestCurrent() {
   await testAndMigrate(currentUrl);
 }
 
+// ─── OPSI 0: File Storage Hosting (SQLite Bawaan) ────────────────────────────
+async function handleOptionSqlite() {
+  console.log('\n--- [OPSI 0] File Storage Hosting (SQLite Bawaan) ---');
+  console.log('Mode ini menyimpan database langsung di file storage hosting (storage/database.sqlite).');
+  console.log('Anda TIDAK PERLU menyiapkan PostgreSQL atau database luar apapun!');
+  
+  const confirm = (await ask('Aktifkan mode File Storage Hosting sekarang? (Y/n)', 'Y')).toUpperCase();
+  if (confirm === 'Y') {
+    updateEnvFile('');
+    const storageDir = path.resolve(__dirname, 'storage');
+    if (!fs.existsSync(storageDir)) {
+      fs.mkdirSync(storageDir, { recursive: true });
+    }
+    const dbPath = path.resolve(storageDir, 'database.sqlite');
+    const defaultDb = path.resolve(storageDir, 'database.sqlite.default');
+    if (!fs.existsSync(dbPath) && fs.existsSync(defaultDb)) {
+      fs.copyFileSync(defaultDb, dbPath);
+    }
+    console.log('✅ Mode File Storage Hosting berhasil diaktifkan!');
+    console.log(`📁 Lokasi file database: ${dbPath}`);
+    console.log('🚀 Anda bisa langsung me-restart aplikasi Anda di cPanel / Node.js Hosting!');
+  }
+}
+
 // ─── MENU UTAMA ───────────────────────────────────────────────────────────────
 async function main() {
   console.clear();
   console.log('====================================================');
-  console.log('🛠️  WIZARD KONFIGURASI DATABASE (POSTGRESQL)');
+  console.log('🛠️  WIZARD KONFIGURASI DATABASE');
   console.log('   App Tunjangan Kinerja Pamong - Kapanewon Pengasih');
   console.log('====================================================\n');
   console.log('Silakan pilih opsi database yang ingin Anda gunakan:');
+  console.log('  [0] OPSI 0: Gunakan File Storage Hosting (SQLite bawaan - Tanpa Setup DB Luar!)');
   console.log('  [1] OPSI 1: Database Lokal di Web Hosting (cPanel / VPS / localhost)');
   console.log('  [2] OPSI 2: Database Cloud Supabase (Supabase.com - Postgres)');
-  console.log('  [3] OPSI 3: Database Cloud PostgreSQL Lainnya (Neon, Railway, RDS)');
+  console.log('  [3] OPSI 3: Database Cloud PostgreSQL Lainnya (Sumopod, Neon, Railway, RDS)');
   console.log('  [4] OPSI 4: Uji Koneksi & Sinkronkan Database Saat Ini (.env)');
-  console.log('  [0] Keluar\n');
+  console.log('  [q] Keluar\n');
 
-  const choice = await ask('Pilihan Anda (0/1/2/3/4)', '4');
+  const choice = await ask('Pilihan Anda (0/1/2/3/4/q)', '0');
 
   switch (choice) {
+    case '0':
+      await handleOptionSqlite();
+      break;
     case '1':
       await handleOptionLocal();
       break;
@@ -282,7 +310,8 @@ async function main() {
     case '4':
       await handleOptionTestCurrent();
       break;
-    case '0':
+    case 'q':
+    case 'Q':
       console.log('Sampai jumpa!');
       break;
     default:

@@ -15,6 +15,7 @@ import {
   IconBook,
   IconDatabase,
   IconFileText,
+  IconLock,
   IconClose,
   IconFingerprint,
 } from '@/components/ui/Icons';
@@ -25,7 +26,8 @@ const superAdminMenuItems = [
   { href: '/superadmin/lokasi', label: 'Setting Lokasi Kantor', icon: IconMapPin },
   { href: '/superadmin/format-laporan', label: 'Format Laporan & Kop', icon: IconFileText },
   { href: '/superadmin/admins', label: 'Manajemen User Admin', icon: IconUsers },
-  { href: '/superadmin/database', label: 'Reset & Kelola Database', icon: IconDatabase },
+  { href: '/superadmin/database', label: 'Kelola Database', icon: IconDatabase },
+  { href: '/superadmin/ganti-password', label: 'Ganti Password Root', icon: IconLock },
   { href: '/superadmin/panduan', label: 'Buku Panduan Super Admin', icon: IconBook },
 ];
 

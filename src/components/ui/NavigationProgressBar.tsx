@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef, useTransition } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 
 export default function NavigationProgressBar() {
@@ -8,26 +8,49 @@ export default function NavigationProgressBar() {
   const searchParams = useSearchParams();
   const [progress, setProgress] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const finishTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const [, startTransition] = useTransition();
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const finishTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const safetyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearProgressTimers = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+
+    if (finishTimerRef.current) {
+      clearTimeout(finishTimerRef.current);
+      finishTimerRef.current = null;
+    }
+
+    if (safetyTimeoutRef.current) {
+      clearTimeout(safetyTimeoutRef.current);
+      safetyTimeoutRef.current = null;
+    }
+  };
 
   // Reset/selesaikan progress bar saat pathname atau searchParams berubah
   useEffect(() => {
-    if (isVisible) {
-      if (timerRef.current) clearInterval(timerRef.current);
-      setProgress(100);
+    if (!isVisible) return;
 
+    const finalizeProgress = () => {
+      requestAnimationFrame(() => setProgress(100));
       finishTimerRef.current = setTimeout(() => {
         setIsVisible(false);
         setProgress(0);
+        finishTimerRef.current = null;
       }, 250);
-    }
+    };
+
+    finalizeProgress();
 
     return () => {
-      if (finishTimerRef.current) clearTimeout(finishTimerRef.current);
+      if (finishTimerRef.current) {
+        clearTimeout(finishTimerRef.current);
+        finishTimerRef.current = null;
+      }
     };
-  }, [pathname, searchParams]);
+  }, [pathname, searchParams, isVisible]);
 
   // Intercept semua klik pada link internal untuk respon visual instan 0ms
   useEffect(() => {
@@ -65,8 +88,7 @@ export default function NavigationProgressBar() {
         if (currentPath === targetPath) return;
 
         // Mulai animasi loading seketika (0 milidetik umpan balik visual)
-        if (timerRef.current) clearInterval(timerRef.current);
-        if (finishTimerRef.current) clearTimeout(finishTimerRef.current);
+        clearProgressTimers();
 
         setIsVisible(true);
         setProgress(25);
@@ -75,7 +97,10 @@ export default function NavigationProgressBar() {
         timerRef.current = setInterval(() => {
           setProgress((prev) => {
             if (prev >= 88) {
-              if (timerRef.current) clearInterval(timerRef.current);
+              if (timerRef.current) {
+                clearInterval(timerRef.current);
+                timerRef.current = null;
+              }
               return 88;
             }
             // Lompatan acak alami antara 5% - 15%
@@ -84,10 +109,10 @@ export default function NavigationProgressBar() {
         }, 150);
 
         // Pengaman: Jika setelah 8 detik tidak berpindah, reset otomatis
-        setTimeout(() => {
+        safetyTimeoutRef.current = setTimeout(() => {
           setIsVisible((vis) => {
             if (vis) {
-              if (timerRef.current) clearInterval(timerRef.current);
+              clearProgressTimers();
               setProgress(0);
               return false;
             }
@@ -102,8 +127,7 @@ export default function NavigationProgressBar() {
     document.addEventListener('click', handleDocumentClick, { capture: true });
     return () => {
       document.removeEventListener('click', handleDocumentClick, { capture: true });
-      if (timerRef.current) clearInterval(timerRef.current);
-      if (finishTimerRef.current) clearTimeout(finishTimerRef.current);
+      clearProgressTimers();
     };
   }, []);
 

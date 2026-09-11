@@ -7,6 +7,7 @@ import TurnstileWidget from '@/components/auth/TurnstileWidget';
 function LoginForm() {
   const searchParams = useSearchParams();
   const urlError = searchParams.get('error');
+  const isExpired = searchParams.get('expired') === '1';
 
   const [nip, setNip] = useState('');
   const [password, setPassword] = useState('');
@@ -269,6 +270,7 @@ function LoginForm() {
 
         {/* Card Form */}
         <div
+          suppressHydrationWarning
           style={{
             background: '#ffffff',
             borderRadius: '16px',
@@ -285,6 +287,31 @@ function LoginForm() {
               Masukkan kredensial yang telah terdaftar
             </p>
           </div>
+
+          {isExpired && (
+            <div
+              className="animate-fade-in"
+              style={{
+                background: '#fffbeb',
+                border: '1px solid #fcd34d',
+                borderRadius: '8px',
+                padding: '12px 14px',
+                marginBottom: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+              }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+              <span style={{ fontSize: '13px', color: '#92400e', fontWeight: '500' }}>
+                Sesi Anda telah berakhir karena tidak aktif. Silakan masuk kembali.
+              </span>
+            </div>
+          )}
 
           {error && (
             <div
@@ -309,7 +336,7 @@ function LoginForm() {
             </div>
           )}
 
-          <form id="login-form" action="/api/auth/login" method="POST" onSubmit={handleSubmit}>
+          <form id="login-form" action="/api/auth/login" method="POST" onSubmit={handleSubmit} suppressHydrationWarning>
             <div style={{ marginBottom: '18px' }}>
               <label
                 style={{
@@ -330,6 +357,8 @@ function LoginForm() {
                 onChange={(e) => setNip(e.target.value)}
                 placeholder="Masukkan username"
                 required
+                autoComplete="username"
+                suppressHydrationWarning
                 style={{
                   width: '100%',
                   padding: '10px 14px',
@@ -362,6 +391,8 @@ function LoginForm() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Masukkan password"
                 required
+                autoComplete="current-password"
+                suppressHydrationWarning
                 style={{
                   width: '100%',
                   padding: '10px 14px',
@@ -375,10 +406,10 @@ function LoginForm() {
             </div>
 
             {/* Hidden Input botToken for native form submission fallback */}
-            <input type="hidden" name="botToken" value={botToken || ''} />
+            <input type="hidden" name="botToken" value={botToken || ''} suppressHydrationWarning />
 
             {/* Cloudflare Turnstile Anti-Bot Widget */}
-            <div style={{ marginBottom: '20px' }}>
+            <div style={{ marginBottom: '20px' }} suppressHydrationWarning>
               <TurnstileWidget
                 onVerify={(token) => {
                   setBotToken(token);
@@ -397,6 +428,7 @@ function LoginForm() {
             <button
               type="submit"
               disabled={loading || !botToken}
+              suppressHydrationWarning
               style={{
                 width: '100%',
                 padding: '12px',
@@ -451,6 +483,7 @@ function LoginForm() {
                   type="button"
                   onClick={handleBiometricLogin}
                   disabled={biometricLoading || loading}
+                  suppressHydrationWarning
                   style={{
                     width: '100%',
                     display: 'flex',

@@ -38,13 +38,41 @@ function loadEnv() {
   }
 }
 
+function getPrismaClient(engine) {
+  const url = process.env.DATABASE_URL || '';
+  const isPostgres = engine === 'postgres' || (!engine && (url.startsWith('postgresql://') || url.startsWith('postgres://')));
+
+  if (isPostgres) {
+    const { PrismaClient } = require('@prisma/client');
+    return new PrismaClient();
+  } else {
+    let PrismaClient;
+    try {
+      PrismaClient = require('@prisma/client-sqlite').PrismaClient;
+    } catch {
+      PrismaClient = require('@prisma/client').PrismaClient;
+    }
+    const storageDir = path.resolve(__dirname, '..', 'storage');
+    if (!fs.existsSync(storageDir)) {
+      fs.mkdirSync(storageDir, { recursive: true });
+    }
+    const dbPath = path.resolve(storageDir, 'database.sqlite');
+    return new PrismaClient({
+      datasources: {
+        db: {
+          url: `file:${dbPath}`,
+        },
+      },
+    });
+  }
+}
+
 async function seedDatabase(options = {}) {
   const silent = !!options.silent;
   loadEnv();
 
-  const { PrismaClient } = require('@prisma/client');
   const bcrypt = require('bcryptjs');
-  const prisma = new PrismaClient();
+  const prisma = getPrismaClient(options.engine);
 
   if (!silent) {
     console.log('🌱 Memulai seeding data awal database...');

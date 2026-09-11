@@ -36,7 +36,7 @@ const CATEGORIES = [
   { id: 'all', label: 'Semua Panduan' },
   { id: 'identitas', label: 'Identitas & Logo Web App' },
   { id: 'admin', label: 'Manajemen User Admin' },
-  { id: 'database', label: 'Reset & Kelola Database' },
+  { id: 'database', label: 'Kelola Database' },
   { id: 'hosting', label: 'Hosting & Konfigurasi .env' },
   { id: 'faq', label: 'Tanya Jawab (FAQ)' },
 ];
@@ -137,8 +137,8 @@ export default function BukuPanduanSuperAdminPage() {
       steps: [
         {
           nomor: '01',
-          judul: 'Buka Menu Reset & Kelola Database',
-          deskripsi: 'Akses menu "Reset & Kelola Database" (/superadmin/database). Halaman ini menampilkan ringkasan jumlah baris data yang ada saat ini.',
+          judul: 'Buka Menu Kelola Database',
+          deskripsi: 'Akses menu "Kelola Database" (/superadmin/database). Halaman ini menampilkan ringkasan jumlah baris data yang ada saat ini.',
           tips: 'Layout halaman ini telah diperlebar penuh (full width) dengan ukuran font yang jelas dan kontras tinggi.',
         },
         {

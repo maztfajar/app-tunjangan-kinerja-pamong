@@ -42,6 +42,9 @@ const nextConfig: NextConfig = {
   // sehingga hosting TIDAK perlu menjalankan npm install sama sekali
   output: 'standalone',
 
+  // Pastikan modul native dan Prisma tidak di-bundle webpack melainkan menggunakan runtime Node.js
+  serverExternalPackages: ['@prisma/client', '@prisma/client-sqlite', 'bcryptjs'],
+
   // Izinkan origin domain Cloudflare tunnel untuk request Next.js dev server & websocket HMR
   // (hanya aktif saat next dev, diabaikan di production)
   allowedDevOrigins: [

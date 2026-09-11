@@ -70,7 +70,9 @@ const isNumericPort = /^\d+$/.test(rawPort);
 const listenTarget = isNumericPort ? parseInt(rawPort, 10) : rawPort;
 
 if (!process.env.DATABASE_URL) {
-  console.warn('[server.js] ⚠️  PERINGATAN: DATABASE_URL belum terisi di file .env!');
+  console.log('[server.js] ℹ️  DATABASE_URL tidak diatur di .env -> Aplikasi otomatis berjalan dalam mode File Storage Hosting (SQLite).');
+} else {
+  console.log('[server.js] 🐘 DATABASE_URL terdeteksi -> Aplikasi terhubung ke database eksternal (PostgreSQL / Supabase / Sumopod).');
 }
 
 // 6. Buat HTTP server native Node.js
@@ -200,13 +202,57 @@ server.listen(listenTarget, () => {
 
 // 9. Auto-Inisialisasi Database Otomatis (Zero-Touch: Otomatis Buat Tabel & Akun Default)
 async function autoInitDatabase() {
-  if (!process.env.DATABASE_URL) {
-    console.warn('[server.js] ⚠️  Auto-Init Database dilewati: DATABASE_URL belum diatur pada .env.');
+  const isPostgres = process.env.DATABASE_URL && (process.env.DATABASE_URL.startsWith('postgresql://') || process.env.DATABASE_URL.startsWith('postgres://'));
+
+  if (!isPostgres) {
+    console.log('[server.js] 📁 Mode File Storage (SQLite) aktif: Menyiapkan storage/database.sqlite...');
+    const storageDir = path.resolve(__dirname, 'storage');
+    if (!fs.existsSync(storageDir)) {
+      fs.mkdirSync(storageDir, { recursive: true });
+    }
+    const dbPath = path.resolve(storageDir, 'database.sqlite');
+    const defaultDb = path.resolve(storageDir, 'database.sqlite.default');
+
+    if (!fs.existsSync(dbPath) && fs.existsSync(defaultDb)) {
+      try {
+        fs.copyFileSync(defaultDb, dbPath);
+        console.log('[server.js] ✅ Berhasil memulihkan database.sqlite dari template bawaan.');
+      } catch (copyErr) {
+        console.warn('[server.js] ⚠️ Gagal menyalin template SQLite:', copyErr.message);
+      }
+    }
+
+    try {
+      let SqliteClient;
+      try {
+        SqliteClient = require('@prisma/client-sqlite').PrismaClient;
+      } catch {
+        SqliteClient = require('@prisma/client').PrismaClient;
+      }
+      const prismaSqlite = new SqliteClient({
+        datasources: {
+          db: { url: `file:${dbPath}` }
+        }
+      });
+      const count = await prismaSqlite.user.count();
+      console.log(`[server.js] ✅ SQLite Storage siap & aktif (${count} akun pengguna).`);
+      await prismaSqlite.$disconnect();
+    } catch (sqliteErr) {
+      console.warn('[server.js] ⚠️ Memeriksa/Seeding SQLite:', sqliteErr.message);
+      try {
+        const { seedDatabase } = require('./prisma/seed');
+        await seedDatabase({ silent: true, engine: 'sqlite' });
+        console.log('[server.js] ✅ SQLite berhasil di-seed otomatis.');
+      } catch (seedErr) {
+        console.warn('[server.js] ⚠️ Gagal seeding SQLite:', seedErr.message);
+      }
+    }
     return;
   }
 
+  // Jika menggunakan PostgreSQL (Supabase / Sumopod / Neon / VPS / cPanel)
   try {
-    console.log('[server.js] 🔍 Memeriksa status tabel database...');
+    console.log('[server.js] 🔍 Menghubungkan ke database eksternal PostgreSQL...');
     const { PrismaClient } = require('@prisma/client');
     const prisma = new PrismaClient();
 
@@ -238,13 +284,13 @@ async function autoInitDatabase() {
       // Seeding akun awal & pengaturan default
       try {
         const { seedDatabase } = require('./prisma/seed');
-        await seedDatabase({ silent: true });
+        await seedDatabase({ silent: true, engine: 'postgres' });
         console.log('[server.js] ✅ Akun default (Admin & Pamong) dan pengaturan kop berhasil disematkan!');
       } catch (seedErr) {
         console.warn('[server.js] ⚠️  Catatan seeder otomatis:', seedErr.message);
       }
     } else {
-      console.log(`[server.js] ✅ Database aktif & normal (Terdeteksi ${userCount} pengguna).`);
+      console.log(`[server.js] ✅ Database PostgreSQL aktif & normal (Terdeteksi ${userCount} pengguna).`);
 
       // Pastikan tabel baru (jika ada pembaruan versi) dan kolom baru tersinkronisasi
       try {

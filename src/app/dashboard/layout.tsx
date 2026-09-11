@@ -87,6 +87,48 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   }, [profileOpen, isMobile]);
 
+  // ── Session Guard: Refresh token saat tab kembali aktif setelah idle ──────
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState !== 'visible') return;
+
+      try {
+        const res = await fetch('/api/auth/refresh', { method: 'POST' });
+        if (res.status === 401) {
+          // Token expired — redirect ke login dengan pesan
+          router.replace('/login?expired=1');
+        }
+      } catch {
+        // Abaikan error jaringan (offline, dll.)
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [router]);
+
+  // ── Session Guard: Refresh proaktif setiap 30 menit saat tab aktif ────────
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const INTERVAL_MS = 30 * 60 * 1000; // 30 menit
+    const id = setInterval(async () => {
+      if (document.visibilityState !== 'visible') return; // jangan refresh jika tab tidak aktif
+      try {
+        const res = await fetch('/api/auth/refresh', { method: 'POST' });
+        if (res.status === 401) {
+          router.replace('/login?expired=1');
+        }
+      } catch {
+        // Abaikan error jaringan
+      }
+    }, INTERVAL_MS);
+
+    return () => clearInterval(id);
+  }, [router]);
+
   const handleRegisterBiometric = async () => {
     try {
       setBiometricActionLoading(true);
@@ -328,7 +370,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <Link
                   key={item.href}
                   href={item.href}
-                  prefetch={false}
                   className={`sidebar-link ${isActive ? 'active' : ''}`}
                   data-tooltip={item.label}
                 >
@@ -639,7 +680,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <Link
               key={item.href}
               href={item.href}
-              prefetch={false}
               className={`bottom-nav-item ${isActive ? 'active' : ''}`}
             >
               <IconComponent size={24} color={isActive ? '#4361ee' : '#64748b'} />

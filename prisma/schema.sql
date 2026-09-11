@@ -165,6 +165,7 @@ CREATE TABLE IF NOT EXISTS "AppSettings" (
     "subJudul" TEXT NOT NULL DEFAULT 'Sistem Informasi Pamong',
     "logoUrl" TEXT,
     "kopLogoUrl" TEXT,
+    "kopAksaraUrl" TEXT,
     "kopNamaPemda" TEXT DEFAULT 'Pemerintah Kabupaten Kulon Progo',
     "kopNamaInstansi" TEXT DEFAULT 'Kapanewon Pengasih',
     "kopAlamat" TEXT DEFAULT 'Jl. Pengasih No. 2, Pengasih, Kulon Progo, DIY 55652',
@@ -290,6 +291,8 @@ ALTER TABLE "Task" ADD COLUMN IF NOT EXISTS "aktifitasId" TEXT;
 
 ALTER TABLE "AppSettings" ADD COLUMN IF NOT EXISTS "posisiDokumen" TEXT DEFAULT 'portrait';
 ALTER TABLE "AppSettings" ADD COLUMN IF NOT EXISTS "sembunyikanNip" BOOLEAN DEFAULT false;
+ALTER TABLE "AppSettings" ADD COLUMN IF NOT EXISTS "sembunyikanNipAtasan" BOOLEAN DEFAULT false;
+ALTER TABLE "AppSettings" ADD COLUMN IF NOT EXISTS "kopAksaraUrl" TEXT;
 
 -- ==============================================================================
 -- INDEX & UNIQUE CONSTRAINTS

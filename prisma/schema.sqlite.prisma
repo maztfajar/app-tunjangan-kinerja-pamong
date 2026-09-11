@@ -2,20 +2,17 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
+  output = "../node_modules/@prisma/client-sqlite"
   provider      = "prisma-client-js"
   binaryTargets = ["native", "debian-openssl-1.1.x", "debian-openssl-3.0.x", "rhel-openssl-1.1.x", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider = "sqlite"
+  url = env("SQLITE_DATABASE_URL")
 }
 
-enum Role {
-  SUPERADMIN
-  ADMIN
-  PEGAWAI
-}
+
 
 model User {
   id        String   @id @default(cuid())
@@ -24,7 +21,7 @@ model User {
   password  String
   jabatan   String?
   unitKerja String?
-  role      Role     @default(PEGAWAI)
+  role String @default("PEGAWAI")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -155,11 +152,11 @@ model AppSettings {
   namaApp          String   @default("E-KINERJA")
   namaKantor       String   @default("Kalurahan")
   subJudul         String   @default("Sistem Informasi Pamong")
-  logoUrl          String?  @db.Text
+  logoUrl          String?
 
   // Format Kop Laporan Dokumen
-  kopLogoUrl       String?  @db.Text
-  kopAksaraUrl     String?  @db.Text
+  kopLogoUrl       String?
+  kopAksaraUrl     String?
   kopNamaPemda     String?  @default("Pemerintah Kabupaten Kulon Progo")
   kopNamaInstansi  String?  @default("Kapanewon Pengasih")
   kopAlamat        String?  @default("Jl. Pengasih No. 2, Pengasih, Kulon Progo, DIY 55652")

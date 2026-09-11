@@ -48,10 +48,56 @@ if (fs.existsSync(envPath)) {
 // 2. Periksa DATABASE_URL
 const dbUrl = process.env.DATABASE_URL;
 if (!dbUrl) {
-  console.error('\n❌ ERROR: Variabel DATABASE_URL belum diatur!');
-  console.error('   Silakan jalankan wizard pengaturan database:');
-  console.error('   👉 node setup-db.js\n');
-  process.exit(1);
+  console.log('ℹ️  DATABASE_URL tidak diset di .env.');
+  console.log('📁 Menjalankan diagnostik untuk Mode File Storage Hosting (SQLite: storage/database.sqlite)...\n');
+  
+  const storageDir = path.resolve(__dirname, 'storage');
+  const dbPath = path.resolve(storageDir, 'database.sqlite');
+  if (!fs.existsSync(dbPath)) {
+    const defaultDb = path.resolve(storageDir, 'database.sqlite.default');
+    if (fs.existsSync(defaultDb)) {
+      fs.copyFileSync(defaultDb, dbPath);
+      console.log('✅ Berhasil menyalin database.sqlite dari template bawaan.');
+    } else {
+      console.error('❌ File storage/database.sqlite belum ada.');
+      process.exit(1);
+    }
+  }
+
+  let SqliteClient;
+  try {
+    SqliteClient = require('@prisma/client-sqlite').PrismaClient;
+  } catch {
+    SqliteClient = require('@prisma/client').PrismaClient;
+  }
+  const prismaSqlite = new SqliteClient({
+    datasources: { db: { url: `file:${dbPath}` } }
+  });
+
+  (async () => {
+    try {
+      await prismaSqlite.$connect();
+      console.log('✅ Terhubung ke storage/database.sqlite dengan sukses!\n');
+      const userCount = await prismaSqlite.user.count();
+      const settings = await prismaSqlite.appSettings.findFirst();
+      const jam = await prismaSqlite.jamKerja.findFirst();
+      const lokasi = await prismaSqlite.lokasiKantor.findFirst();
+
+      console.log('📊 STATUS STORAGE DATABASE SQLITE:');
+      console.log(`   ✓ Pengguna Terdaftar : ${userCount} akun`);
+      console.log(`   ✓ Nama Aplikasi      : ${settings?.namaApp || 'E-KINERJA'}`);
+      console.log(`   ✓ Jam Kerja          : ${jam?.jamMasuk || '07:30'} - ${jam?.jamPulang || '15:45'}`);
+      console.log(`   ✓ Lokasi Kantor      : ${lokasi?.namaLokasi || 'Kapanewon Pengasih'}`);
+      console.log('\n====================================================');
+      console.log('🎉 SEMUA PEMERIKSAAN SUKSES! APLIKASI SIAP DIGUNAKAN.');
+      console.log('====================================================');
+    } catch (e) {
+      console.error('❌ Terjadi kesalahan saat memeriksa SQLite:', e.message);
+    } finally {
+      await prismaSqlite.$disconnect();
+    }
+  })();
+  return;
 }
 
 // Sensor password pada URL saat dicetak ke layar

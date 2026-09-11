@@ -19,6 +19,17 @@ export async function GET() {
       });
     }
 
+    if (settings && (settings as any).sembunyikanNipAtasan === undefined) {
+      try {
+        const rawResult: any[] = await prisma.$queryRawUnsafe(
+          `SELECT "sembunyikanNipAtasan" FROM "AppSettings" WHERE "id" = 'default' LIMIT 1`
+        );
+        if (rawResult && rawResult.length > 0) {
+          (settings as any).sembunyikanNipAtasan = Boolean(rawResult[0].sembunyikanNipAtasan);
+        }
+      } catch {}
+    }
+
     return NextResponse.json({ settings });
   } catch (error) {
     console.error('Get settings error:', error);
@@ -51,6 +62,7 @@ export async function PUT(request: Request) {
 
     // Pengaturan Kop Laporan
     if (body.kopLogoUrl !== undefined) updateData.kopLogoUrl = body.kopLogoUrl || null;
+    if (body.kopAksaraUrl !== undefined) updateData.kopAksaraUrl = body.kopAksaraUrl || null;
     if (body.kopNamaPemda !== undefined) updateData.kopNamaPemda = body.kopNamaPemda ? body.kopNamaPemda.trim() : null;
     if (body.kopNamaInstansi !== undefined) updateData.kopNamaInstansi = body.kopNamaInstansi ? body.kopNamaInstansi.trim() : null;
     if (body.kopAlamat !== undefined) updateData.kopAlamat = body.kopAlamat ? body.kopAlamat.trim() : null;
@@ -68,6 +80,9 @@ export async function PUT(request: Request) {
     if (body.sembunyikanNip !== undefined) {
       updateData.sembunyikanNip = Boolean(body.sembunyikanNip);
     }
+    if (body.sembunyikanNipAtasan !== undefined) {
+      updateData.sembunyikanNipAtasan = Boolean(body.sembunyikanNipAtasan);
+    }
 
     // Pengaturan Template Tanda Tangan
     if (body.ttdTempat !== undefined) updateData.ttdTempat = body.ttdTempat ? body.ttdTempat.trim() : null;
@@ -78,21 +93,45 @@ export async function PUT(request: Request) {
     if (body.ttdAtasanNama !== undefined) updateData.ttdAtasanNama = body.ttdAtasanNama ? body.ttdAtasanNama.trim() : null;
     if (body.ttdAtasanNip !== undefined) updateData.ttdAtasanNip = body.ttdAtasanNip ? body.ttdAtasanNip.trim() : null;
 
-    const settings = await prisma.appSettings.upsert({
-      where: { id: 'default' },
-      update: updateData,
-      create: {
-        id: 'default',
-        namaApp: body.namaApp?.trim() || 'E-KINERJA',
-        namaKantor: body.namaKantor?.trim() || 'Kalurahan',
-        subJudul: body.subJudul?.trim() || 'Sistem Informasi Pamong',
-        ...updateData,
-      },
-    });
+    let settings;
+    try {
+      settings = await prisma.appSettings.upsert({
+        where: { id: 'default' },
+        update: updateData,
+        create: {
+          id: 'default',
+          namaApp: body.namaApp?.trim() || 'E-KINERJA',
+          namaKantor: body.namaKantor?.trim() || 'Kalurahan',
+          subJudul: body.subJudul?.trim() || 'Sistem Informasi Pamong',
+          ...updateData,
+        },
+      });
+    } catch (upsertError: any) {
+      console.warn('Prisma upsert fallback triggered:', upsertError?.message);
+      const { sembunyikanNipAtasan, ...safeUpdateData } = updateData;
+      settings = await prisma.appSettings.upsert({
+        where: { id: 'default' },
+        update: safeUpdateData,
+        create: {
+          id: 'default',
+          namaApp: body.namaApp?.trim() || 'E-KINERJA',
+          namaKantor: body.namaKantor?.trim() || 'Kalurahan',
+          subJudul: body.subJudul?.trim() || 'Sistem Informasi Pamong',
+          ...safeUpdateData,
+        },
+      });
+      if (sembunyikanNipAtasan !== undefined) {
+        await prisma.$executeRawUnsafe(
+          `UPDATE "AppSettings" SET "sembunyikanNipAtasan" = $1 WHERE "id" = 'default'`,
+          Boolean(sembunyikanNipAtasan)
+        );
+        (settings as any).sembunyikanNipAtasan = Boolean(sembunyikanNipAtasan);
+      }
+    }
 
     return NextResponse.json({ success: true, settings });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Update settings error:', error);
-    return NextResponse.json({ error: 'Server error saat menyimpan pengaturan.' }, { status: 500 });
+    return NextResponse.json({ error: error?.message || 'Server error saat menyimpan pengaturan.' }, { status: 500 });
   }
 }

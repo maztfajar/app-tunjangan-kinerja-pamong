@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import {
   IconFileText,
@@ -23,19 +24,18 @@ interface PejabatUser {
 
 export default function SuperAdminFormatLaporanPage() {
   const [form, setForm] = useState({
-    // Kop Laporan
     kopLogoUrl: '',
+    kopAksaraUrl: '',
     kopNamaPemda: 'Pemerintah Kabupaten Kulon Progo',
     kopNamaInstansi: 'Kapanewon Pengasih',
     kopAlamat: 'Jl. Pengasih No. 2, Pengasih, Kulon Progo, DIY 55652',
     kopKontak: 'Telp. (0274) 773422',
 
-    // Ukuran Kertas & Posisi Dokumen
     ukuranKertas: 'A4' as 'A4' | 'F4',
     posisiDokumen: 'portrait' as 'portrait' | 'landscape',
     sembunyikanNip: false,
+    sembunyikanNipAtasan: false,
 
-    // Tanda Tangan
     ttdTempat: 'Pengasih',
     ttdJudulKiri: 'Yang Membuat Laporan',
     ttdAtasanUserId: '',
@@ -49,6 +49,16 @@ export default function SuperAdminFormatLaporanPage() {
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [showSavedToast, setShowSavedToast] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const toastTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+    return () => {
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     // Fetch Settings
@@ -61,6 +71,7 @@ export default function SuperAdminFormatLaporanPage() {
           const s = settingsData.settings;
           setForm({
             kopLogoUrl: s.kopLogoUrl || s.logoUrl || '',
+            kopAksaraUrl: s.kopAksaraUrl || '',
             kopNamaPemda: s.kopNamaPemda || 'Pemerintah Kabupaten Kulon Progo',
             kopNamaInstansi: s.kopNamaInstansi || s.namaKantor || 'Kapanewon Pengasih',
             kopAlamat: s.kopAlamat || 'Jl. Pengasih No. 2, Pengasih, Kulon Progo, DIY 55652',
@@ -69,6 +80,7 @@ export default function SuperAdminFormatLaporanPage() {
             ukuranKertas: (s.ukuranKertas === 'F4' ? 'F4' : 'A4') as 'A4' | 'F4',
             posisiDokumen: (s.posisiDokumen === 'landscape' ? 'landscape' : 'portrait') as 'portrait' | 'landscape',
             sembunyikanNip: Boolean(s.sembunyikanNip),
+            sembunyikanNipAtasan: Boolean(s.sembunyikanNipAtasan),
 
             ttdTempat: s.ttdTempat || 'Pengasih',
             ttdJudulKiri: s.ttdJudulKiri || 'Yang Membuat Laporan',
@@ -104,27 +116,30 @@ export default function SuperAdminFormatLaporanPage() {
     reader.readAsDataURL(file);
   };
 
+
   const handleHapusLogo = () => {
     setForm((prev) => ({ ...prev, kopLogoUrl: '' }));
   };
 
-  const handleSelectAtasan = (userId: string) => {
-    const selected = pejabatList.find((p) => p.id === userId);
-    if (selected) {
-      setForm((prev) => ({
-        ...prev,
-        ttdAtasanUserId: selected.id,
-        ttdAtasanNama: selected.nama,
-        ttdAtasanNip: selected.nip,
-        ttdAtasanJabatan: selected.jabatan || prev.ttdAtasanJabatan || 'Panewu Pengasih',
-      }));
-    } else {
-      setForm((prev) => ({
-        ...prev,
-        ttdAtasanUserId: '',
-      }));
+  const handleAksaraUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      setMessage({ type: 'error', text: 'Ukuran file aksara Jawa maksimal 2MB.' });
+      return;
     }
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setForm((prev) => ({ ...prev, kopAksaraUrl: reader.result as string }));
+    };
+    reader.readAsDataURL(file);
   };
+
+  const handleHapusAksara = () => {
+    setForm((prev) => ({ ...prev, kopAksaraUrl: '' }));
+  };
+
+  const handleSelectAtasan = (_userId: string) => { /* Dropdown dihapus, tidak dipakai */ };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -142,15 +157,27 @@ export default function SuperAdminFormatLaporanPage() {
       if (!res.ok) {
         setMessage({ type: 'error', text: data.error || 'Gagal menyimpan format laporan.' });
       } else {
-        setMessage({
-          type: 'success',
-          text: 'Format Kop Laporan & Template Tanda Tangan Atasan berhasil diperbarui! Seluruh lembar cetak pegawai dan admin kini otomatis menggunakan format baru ini.',
-        });
+        // Tampilkan keterangan tersimpan di pojok kanan atas dengan warna hijau selama 2 detik
+        if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+        setShowSavedToast(true);
+        toastTimerRef.current = setTimeout(() => {
+          setShowSavedToast(false);
+        }, 2000);
+
+        if (data.settings) {
+          setForm((prev) => ({
+            ...prev,
+            sembunyikanNipAtasan: Boolean(data.settings.sembunyikanNipAtasan),
+            sembunyikanNip: Boolean(data.settings.sembunyikanNip),
+          }));
+        }
       }
-    } catch {
-      setMessage({ type: 'error', text: 'Terjadi kesalahan jaringan saat menyimpan data.' });
+    } catch (err: any) {
+      console.error('Submit error:', err);
+      setMessage({ type: 'error', text: 'Terjadi kesalahan jaringan atau server saat menyimpan data.' });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const todayFormatted = new Date().toLocaleDateString('id-ID', {
@@ -372,14 +399,123 @@ export default function SuperAdminFormatLaporanPage() {
                 <label className="input-label" style={{ fontWeight: '600' }}>
                   Baris 2: Nama Kapanewon / Kalurahan / Instansi
                 </label>
-                <input
-                  type="text"
+                <textarea
                   className="input-field"
-                  placeholder="Contoh: KAPANEWON PENGASIH"
+                  placeholder={`Contoh:\nKALURAHAN KARANGSARI\nKAPANEWON PENGASIH`}
                   value={form.kopNamaInstansi}
                   onChange={(e) => setForm({ ...form, kopNamaInstansi: e.target.value })}
+                  rows={2}
+                  style={{
+                    resize: 'vertical',
+                    minHeight: '64px',
+                    fontFamily: 'inherit',
+                    lineHeight: 1.5,
+                    whiteSpace: 'pre-wrap',
+                  }}
                   required
                 />
+                <p style={{ fontSize: '11px', color: '#64748b', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span style={{ display: 'inline-block', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '0px 5px', fontSize: '10px', fontFamily: 'monospace', fontWeight: '600', color: '#475569' }}>Enter ↵</span>
+                  untuk pindah baris — berguna jika nama terlalu panjang agar rapi di kop surat.
+                </p>
+              </div>
+
+              {/* Aksara Jawa — khusus wilayah Yogyakarta / DIY */}
+              <div
+                style={{
+                  background: '#fdf4ff',
+                  border: '1.5px solid #e9d5ff',
+                  borderRadius: '12px',
+                  padding: '16px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                  <span style={{ fontSize: '18px' }}>ꦲ</span>
+                  <div>
+                    <label className="input-label" style={{ fontWeight: '700', color: '#6b21a8', marginBottom: 0 }}>Gambar Aksara Jawa (Opsional — Khusus DIY / Yogyakarta)</label>
+                    <p style={{ fontSize: '11px', color: '#7c3aed', margin: '2px 0 0 0' }}>
+                      Akan ditampilkan di bawah nama instansi pada kop surat, sesuai Pergub DIY.
+                    </p>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  {/* Preview Aksara */}
+                  <div
+                    style={{
+                      width: '120px',
+                      height: '40px',
+                      borderRadius: '8px',
+                      border: '2px dashed #d8b4fe',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      background: '#faf5ff',
+                      overflow: 'hidden',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {form.kopAksaraUrl ? (
+                      <img
+                        src={form.kopAksaraUrl}
+                        alt="Aksara Jawa"
+                        style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '4px' }}
+                      />
+                    ) : (
+                      <span style={{ fontSize: '10px', color: '#a78bfa', textAlign: 'center', lineHeight: 1.3 }}>ꦲꦏ꧀ꦱꦫ<br/>Pratinjau</span>
+                    )}
+                  </div>
+
+                  {/* Tombol Upload & Hapus */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      <label
+                        className="btn-outline"
+                        style={{
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          fontSize: '12px',
+                          padding: '6px 12px',
+                          borderColor: '#d8b4fe',
+                          color: '#7c3aed',
+                        }}
+                      >
+                        <IconCamera size={14} color="#7c3aed" />
+                        <span>Upload Aksara Jawa</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleAksaraUpload}
+                          style={{ display: 'none' }}
+                        />
+                      </label>
+                      {form.kopAksaraUrl && (
+                        <button
+                          type="button"
+                          onClick={handleHapusAksara}
+                          className="btn-outline"
+                          style={{
+                            borderColor: '#fecaca',
+                            color: '#dc2626',
+                            fontSize: '12px',
+                            padding: '6px 12px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                          }}
+                        >
+                          <IconTrash size={14} color="#dc2626" />
+                          Hapus
+                        </button>
+                      )}
+                    </div>
+                    <span style={{ fontSize: '11px', color: '#64748b' }}>
+                      Format PNG/JPG transparan disarankan. Maks 2MB. Kosongkan jika tidak diperlukan.
+                    </span>
+                  </div>
+                </div>
               </div>
 
               {/* Baris 3: Alamat */}
@@ -754,29 +890,6 @@ export default function SuperAdminFormatLaporanPage() {
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  {/* Dropdown Pilih Atasan dari Daftar Pegawai */}
-                  <div>
-                    <label className="input-label" style={{ fontSize: '12px', color: '#1e40af', fontWeight: '700' }}>
-                      👤 Pilih Pejabat / Atasan dari Daftar Pegawai
-                    </label>
-                    <select
-                      className="input-field"
-                      style={{ background: '#ffffff', borderColor: '#93c5fd', fontWeight: '600', color: '#0f172a' }}
-                      value={form.ttdAtasanUserId}
-                      onChange={(e) => handleSelectAtasan(e.target.value)}
-                    >
-                      <option value="">-- Pilih dari Daftar Pegawai / Admin --</option>
-                      {pejabatList.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.nama} ({p.jabatan || 'Pamong'}) — NIP: {p.nip} [{p.role}]
-                        </option>
-                      ))}
-                    </select>
-                    <span style={{ fontSize: '11px', color: '#2563eb', marginTop: '4px', display: 'block' }}>
-                      💡 Memilih pegawai di atas akan otomatis mengisi Nama, NIP, dan Jabatan atasan di bawah ini.
-                    </span>
-                  </div>
-
                   {/* Status Approval */}
                   <div>
                     <label className="input-label" style={{ fontSize: '12px' }}>Status Persetujuan</label>
@@ -804,7 +917,7 @@ export default function SuperAdminFormatLaporanPage() {
 
                   {/* Nama Atasan */}
                   <div>
-                    <label className="input-label" style={{ fontSize: '12px' }}>Nama Lengkap & Gelar Atasan</label>
+                    <label className="input-label" style={{ fontSize: '12px' }}>Nama Lengkap &amp; Gelar Atasan</label>
                     <input
                       type="text"
                       className="input-field"
@@ -817,23 +930,44 @@ export default function SuperAdminFormatLaporanPage() {
 
                   {/* NIP Atasan */}
                   <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <label className="input-label" style={{ fontSize: '12px' }}>NIP Atasan</label>
-                      {form.sembunyikanNip && (
-                        <span style={{ fontSize: '11px', color: '#d97706', fontWeight: '600' }}>
-                          Opsional (NIP disembunyikan)
-                        </span>
-                      )}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                      <label className="input-label" style={{ fontSize: '12px', marginBottom: 0 }}>NIP Atasan</label>
+                      {/* Checkbox hide/show NIP Atasan — independen dari sembunyikanNip pegawai */}
+                      <label
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                          cursor: 'pointer',
+                          padding: '3px 9px',
+                          borderRadius: '8px',
+                          background: form.sembunyikanNipAtasan ? '#fef3c7' : '#f1f5f9',
+                          border: `1px solid ${form.sembunyikanNipAtasan ? '#f59e0b' : '#cbd5e1'}`,
+                          fontSize: '11px',
+                          fontWeight: '700',
+                          color: form.sembunyikanNipAtasan ? '#92400e' : '#475569',
+                          transition: 'all 0.15s ease',
+                        }}
+                        title="Centang untuk menyembunyikan NIP atasan di dokumen cetak"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={form.sembunyikanNipAtasan}
+                          onChange={(e) => setForm({ ...form, sembunyikanNipAtasan: e.target.checked })}
+                          style={{ cursor: 'pointer', accentColor: '#d97706' }}
+                        />
+                        <span>{form.sembunyikanNipAtasan ? '🔒 NIP Hidden' : 'Tampilkan NIP'}</span>
+                      </label>
                     </div>
                     <input
                       type="text"
                       className="input-field"
-                      placeholder="Contoh: 19720315 199803 1 005 (Kosongkan jika Lurah / tanpa NIP)"
+                      placeholder="Contoh: 19720315 199803 1 005 (Kosongkan jika tanpa NIP)"
                       value={form.ttdAtasanNip}
                       onChange={(e) => setForm({ ...form, ttdAtasanNip: e.target.value })}
                     />
                     <span style={{ fontSize: '11px', color: '#64748b', marginTop: '3px', display: 'block' }}>
-                      Jika atasan berstatus Pamong/Lurah atau Kalurahan tidak menggunakan NIP, kolom ini dapat dikosongkan.
+                      Kosongkan atau centang Hidden jika atasan adalah Lurah / Pamong yang tidak memakai NIP.
                     </span>
                   </div>
                 </div>
@@ -841,6 +975,29 @@ export default function SuperAdminFormatLaporanPage() {
             </div>
 
             {/* Tombol Simpan */}
+            {message && (
+              <div
+                className="animate-fade-in"
+                style={{
+                  padding: '12px 16px',
+                  borderRadius: '12px',
+                  background: message.type === 'success' ? '#f0fdf4' : '#fef2f2',
+                  border: `1px solid ${message.type === 'success' ? '#bbf7d0' : '#fecaca'}`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                }}
+              >
+                {message.type === 'success' ? (
+                  <IconCheckCircle size={18} color="#16a34a" />
+                ) : (
+                  <IconInfo size={18} color="#dc2626" />
+                )}
+                <span style={{ fontSize: '13px', fontWeight: '600', color: message.type === 'success' ? '#15803d' : '#b91c1c' }}>
+                  {message.text}
+                </span>
+              </div>
+            )}
             <div style={{ display: 'flex', gap: '12px' }}>
               <button
                 type="submit"
@@ -980,40 +1137,59 @@ export default function SuperAdminFormatLaporanPage() {
                 {form.ukuranKertas === 'F4' ? 'F4 · 215×330 mm' : 'A4 · 210×297 mm'} ({form.posisiDokumen === 'landscape' ? 'Landscap' : 'Potrait'})
               </div>
 
-              {/* KOP PREVIEW */}
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '14px',
-                  borderBottom: '3px double #000000',
-                  paddingBottom: '12px',
-                  marginBottom: '16px',
-                  textAlign: 'center',
-                }}
-              >
-                {form.kopLogoUrl && (
-                  <img
-                    src={form.kopLogoUrl}
-                    alt="Logo Kop"
-                    style={{ width: '60px', height: '60px', objectFit: 'contain', flexShrink: 0 }}
-                  />
-                )}
-                <div style={{ flex: 1 }}>
-                  <h4 style={{ fontSize: '14px', fontWeight: '800', textTransform: 'uppercase', margin: 0, letterSpacing: '0.5px' }}>
-                    {form.kopNamaPemda || 'PEMERINTAH DAERAH'}
-                  </h4>
-                  <h3 style={{ fontSize: '13px', fontWeight: '800', textTransform: 'uppercase', margin: '2px 0 0 0' }}>
-                    {form.kopNamaInstansi || 'NAMA INSTANSI'}
-                  </h3>
-                  <p style={{ fontSize: '10px', margin: '2px 0 0 0', lineHeight: '1.3' }}>
-                    {form.kopAlamat || 'Alamat Kantor Lengkap'}
-                  </p>
-                  <p style={{ fontSize: '9px', margin: '1px 0 0 0' }}>
-                    {form.kopKontak || 'Kontak Telepon & Pos-el'}
-                  </p>
+              {/* KOP PREVIEW — standar resmi: logo kiri absolute, teks benar-benar terpusat di tengah halaman */}
+              <div style={{ position: 'relative', marginBottom: '0' }}>
+                {/* Wrapper flex: logo kiri | teks tengah | spacer kanan (sama lebar logo) */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 0, paddingBottom: '8px' }}>
+                  {/* Logo di kiri — posisi tengah, dinaikkan sedikit dari tengah */}
+                  <div style={{ width: '80px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginTop: '-10px' }}>
+                    {form.kopLogoUrl ? (
+                      <img
+                        src={form.kopLogoUrl}
+                        alt="Logo Kop"
+                        style={{ width: '70px', height: '70px', objectFit: 'contain' }}
+                      />
+                    ) : (
+                      <div style={{ width: '70px', height: '70px', border: '1.5px dashed #cbd5e1', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <span style={{ fontSize: '8px', color: '#94a3b8', textAlign: 'center', fontFamily: 'sans-serif', lineHeight: 1.3 }}>Logo<br/>Instansi</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Teks KOP — terpusat di tengah halaman (flex: 1) */}
+                  <div style={{ flex: 1, textAlign: 'center', padding: '4px 8px', minWidth: 0 }}>
+                    <p style={{ fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', margin: 0, letterSpacing: '0.5px', lineHeight: 1.2 }}>
+                      {form.kopNamaPemda || 'PEMERINTAH DAERAH'}
+                    </p>
+                    <p style={{ fontSize: '15px', fontWeight: 900, textTransform: 'uppercase', margin: '3px 0 0 0', lineHeight: 1.2, letterSpacing: '0.3px', whiteSpace: 'pre-line' }}>
+                      {form.kopNamaInstansi || 'NAMA INSTANSI'}
+                    </p>
+                    {/* Aksara Jawa — ditampilkan di bawah nama instansi jika ada */}
+                    {form.kopAksaraUrl && (
+                      <div style={{ display: 'flex', justifyContent: 'center', margin: '4px 0 2px 0' }}>
+                        <img
+                          src={form.kopAksaraUrl}
+                          alt="Aksara Jawa"
+                          style={{ height: '25px', maxWidth: '85%', objectFit: 'contain' }}
+                        />
+                      </div>
+                    )}
+                    {/* Alamat — terpusat, wrap alami jika panjang (standar KOP resmi) */}
+                    <p style={{ fontSize: '8.5px', margin: '6px 0 0 0', lineHeight: 1.5 }}>
+                      {form.kopAlamat || 'Alamat Kantor Lengkap'}
+                    </p>
+                    <p style={{ fontSize: '8px', margin: '2px 0 0 0', lineHeight: 1.5 }}>
+                      {form.kopKontak || 'Kontak Telepon & Pos-el'}
+                    </p>
+                  </div>
+
+                  {/* Spacer kanan — sama lebar kolom logo agar teks tetap terpusat */}
+                  <div style={{ width: '80px', flexShrink: 0 }} />
                 </div>
+
+                {/* Garis pemisah KOP: dua garis — tebal di atas, tipis di bawah (standar dinas) */}
+                <hr style={{ border: 'none', borderTop: '2.5px solid #000000', margin: '0 0 2px 0' }} />
+                <hr style={{ border: 'none', borderTop: '0.75px solid #000000', margin: '0 0 12px 0' }} />
               </div>
 
               {/* JUDUL DOKUMEN PREVIEW */}
@@ -1119,7 +1295,7 @@ export default function SuperAdminFormatLaporanPage() {
                 </table>
               )}
 
-              {/* TANDA TANGAN PREVIEW */}
+              {/* TANDA TANGAN PREVIEW - swapped: Atasan (left) | Pembuat (right) */}
               <div
                 style={{
                   display: 'flex',
@@ -1129,41 +1305,28 @@ export default function SuperAdminFormatLaporanPage() {
                   pageBreakInside: 'avoid',
                 }}
               >
-                {/* Kolom Kiri: Pembuat Laporan */}
+                {/* Kolom Kiri: Atasan / Mengetahui (Lurah / Pimpinan) */}
                 <div style={{ textAlign: 'center', minWidth: '150px' }}>
-                  <p style={{ margin: 0, fontWeight: '500' }}>{form.ttdJudulKiri || 'Yang Membuat Laporan'},</p>
-                  <p style={{ margin: '1px 0 0 0', color: '#64748b', fontSize: '9px' }}>[Pembuat Dokumen]</p>
-                  <div style={{ height: form.posisiDokumen === 'landscape' ? '38px' : '48px' }} />
-                  <p style={{ margin: 0, fontWeight: '700', textDecoration: 'underline' }}>
-                    Nama Pegawai / Pamong
-                  </p>
-                  {!form.sembunyikanNip ? (
-                    <p style={{ margin: 0, fontSize: '9px' }}>
-                      NIP. 19850101 201001 1 001
-                    </p>
-                  ) : (
-                    <p style={{ margin: 0, fontSize: '9px', color: '#475569' }}>
-                      Pamong Kalurahan
-                    </p>
-                  )}
+                  <p style={{ margin: 0 }}>{form.ttdAtasanStatus || 'Mengetahui,'}</p>
+                  <p style={{ margin: '1px 0 0 0', fontWeight: '700' }}>{form.ttdAtasanJabatan || 'Jabatan Atasan'}</p>
+                  <div style={{ height: form.posisiDokumen === 'landscape' ? '32px' : '40px' }} />
+                  <p style={{ margin: 0, fontWeight: '700', textDecoration: 'underline' }}>{form.ttdAtasanNama || '.................................'}</p>
+                  {!form.sembunyikanNipAtasan && form.ttdAtasanNip ? (
+                    <p style={{ margin: 0, fontSize: '9px' }}>NIP. {form.ttdAtasanNip}</p>
+                  ) : null}
                 </div>
 
-                {/* Kolom Kanan: Atasan */}
+                {/* Kolom Kanan: Pembuat Laporan (dengan tanggal di atas) */}
                 <div style={{ textAlign: 'center', minWidth: '150px' }}>
-                  <p style={{ margin: 0 }}>
-                    {form.ttdTempat || 'Pengasih'}, {todayFormatted}
-                  </p>
-                  <p style={{ margin: '1px 0 0 0' }}>{form.ttdAtasanStatus || 'Mengetahui,'}</p>
-                  <p style={{ margin: '1px 0 0 0', fontWeight: '700' }}>{form.ttdAtasanJabatan || 'Panewu Pengasih'}</p>
-                  <div style={{ height: form.posisiDokumen === 'landscape' ? '32px' : '40px' }} />
-                  <p style={{ margin: 0, fontWeight: '700', textDecoration: 'underline' }}>
-                    {form.ttdAtasanNama || '.................................'}
-                  </p>
-                  {!form.sembunyikanNip && form.ttdAtasanNip ? (
-                    <p style={{ margin: 0, fontSize: '9px' }}>
-                      NIP. {form.ttdAtasanNip}
-                    </p>
-                  ) : null}
+                  <p style={{ margin: 0 }}>{form.ttdTempat || 'Pengasih'}, {todayFormatted}</p>
+                  <p style={{ margin: '6px 0 0 0', fontWeight: '700' }}>{form.ttdJudulKiri || 'Yang Membuat Laporan'}</p>
+                  <div style={{ height: form.posisiDokumen === 'landscape' ? '38px' : '48px' }} />
+                  <p style={{ margin: 0, fontWeight: '700', textDecoration: 'underline' }}>Nama Pegawai / Pamong</p>
+                  {!form.sembunyikanNip ? (
+                    <p style={{ margin: 0, fontSize: '9px' }}>NIP. 19850101 201001 1 001</p>
+                  ) : (
+                    <p style={{ margin: 0, fontSize: '9px', color: '#475569' }}>Pamong Kalurahan</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -1174,6 +1337,51 @@ export default function SuperAdminFormatLaporanPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Floating Toast Hijau di Pojok Kanan Atas (Render via Portal ke body, tepat di bawah bar atas) */}
+      {mounted && showSavedToast && createPortal(
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            position: 'fixed',
+            top: '76px',
+            right: '24px',
+            zIndex: 999999,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            padding: '12px 22px',
+            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+            color: '#ffffff',
+            borderRadius: '12px',
+            boxShadow: '0 12px 30px -4px rgba(16, 185, 129, 0.5), 0 4px 12px rgba(0, 0, 0, 0.12)',
+            fontSize: '14px',
+            fontWeight: '700',
+            letterSpacing: '0.01em',
+            animation: 'slideInRight 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
+            pointerEvents: 'none',
+          }}
+        >
+          <div
+            style={{
+              width: '24px',
+              height: '24px',
+              borderRadius: '50%',
+              background: 'rgba(255, 255, 255, 0.25)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '14px',
+              fontWeight: '900',
+            }}
+          >
+            ✓
+          </div>
+          <span>Format Laporan Berhasil Disimpan</span>
+        </div>,
+        document.body
       )}
     </div>
   );

@@ -43,7 +43,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="id" className={plusJakartaSans.className} data-scroll-behavior="smooth" suppressHydrationWarning>
+    <html lang="id" className={plusJakartaSans.className} data-scroll-behavior="smooth" suppressHydrationWarning style={{ colorScheme: 'light' }}>
       <head>
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-touch-fullscreen" content="yes" />

@@ -341,6 +341,43 @@ export default function SuperAdminDashboard() {
         </div>
 
         {/* Card 3: Reset & Pembersihan Database */}
+        {/* Card 3: Backup & Restory Database */}
+        <div
+          className="glass-card-static animate-slide-up"
+          style={{
+            padding: '26px',
+            background: '#ffffff',
+            border: '1px solid #e2e8f0',
+            borderRadius: '16px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            gap: '18px',
+            boxShadow: '0 2px 6px rgba(0,0,0,0.02)',
+          }}
+        >
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
+              <div style={{ padding: '10px', borderRadius: '10px', background: '#ecf8ff' }}>
+                <IconDatabase size={22} color="#0369a1" />
+              </div>
+              <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>
+                3. Backup &amp; Restory Database
+              </h3>
+            </div>
+            <p style={{ fontSize: '14px', color: '#475569', lineHeight: '1.65' }}>
+              Unduh seluruh data aplikasi dalam format JSON yang dapat digunakan untuk restore aman. Gunakan halaman ini untuk menyimpan salinan data atau mengembalikan data dari file JSON yang valid.
+            </p>
+          </div>
+          <Link
+            href="/superadmin/database"
+            className="btn-outline"
+            style={{ alignSelf: 'flex-start', fontSize: '13px', fontWeight: '700', padding: '10px 18px', gap: '6px' }}
+          >
+            Kelola Backup/Restore →
+          </Link>
+        </div>
+
         <div
           className="glass-card-static animate-slide-up"
           style={{

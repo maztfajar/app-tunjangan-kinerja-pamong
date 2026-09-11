@@ -613,24 +613,56 @@ export function LaporanKinerjaTable({
           PRINT VIEW: KOP SURAT KALURAHAN & BIODATA PAMONG
          ======================================================== */}
       <div className="print-only" style={{ color: '#000000', fontFamily: "'Times New Roman', Times, 'Liberation Serif', serif" }}>
-        <div style={{ textAlign: 'center', borderBottom: '3.5px double #000000', paddingBottom: '10px', marginBottom: '16px' }}>
-          {printSettings?.kopLogoUrl && (
-            <img
-              src={printSettings.kopLogoUrl}
-              alt="Logo Kop"
-              style={{ maxHeight: '72px', margin: '0 auto 6px auto', display: 'block' }}
-            />
-          )}
-          <h2 style={{ fontSize: '14pt', fontWeight: 'bold', margin: '0 0 2px 0', textTransform: 'uppercase', color: '#000000', letterSpacing: '0.5px', fontFamily: "'Times New Roman', Times, serif" }}>
-            {printSettings?.kopNamaPemda || 'PEMERINTAH KABUPATEN KULON PROGO'}
-          </h2>
-          <h1 style={{ fontSize: '16pt', fontWeight: 'bold', margin: '0 0 4px 0', textTransform: 'uppercase', color: '#000000', letterSpacing: '0.8px', fontFamily: "'Times New Roman', Times, serif" }}>
-            {printSettings?.kopNamaInstansi || 'KALURAHAN KARANGSARI, KAPANEWON PENGASIH'}
-          </h1>
-          <p style={{ fontSize: '10pt', margin: '0', color: '#000000', lineHeight: 1.4, fontWeight: '500', fontFamily: "'Times New Roman', Times, serif" }}>
-            {printSettings?.kopAlamat || 'Jl. Tentara Pelajar No.05, Kopat, Karangsari, Pengasih, Kulon Progo, DIY 55652'}
-            {printSettings?.kopKontak ? ` | ${printSettings.kopKontak}` : ''}
-          </p>
+        {/* KOP RESMI: Logo di samping kiri, Teks terpusat di tengah dengan spacer kanan */}
+        <div style={{ position: 'relative', marginBottom: '14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 0, paddingBottom: '6px' }}>
+            {/* Logo di kiri */}
+            <div style={{ width: '90px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {printSettings?.kopLogoUrl ? (
+                <img
+                  src={printSettings.kopLogoUrl}
+                  alt="Logo Kop"
+                  style={{ width: '75px', height: '75px', objectFit: 'contain' }}
+                />
+              ) : (
+                <div style={{ width: '75px', height: '75px' }} />
+              )}
+            </div>
+
+            {/* Teks KOP — Terpusat di tengah halaman */}
+            <div style={{ flex: 1, textAlign: 'center', padding: '0 8px', minWidth: 0 }}>
+              <h2 style={{ fontSize: '13pt', fontWeight: 'bold', margin: '0 0 2px 0', textTransform: 'uppercase', color: '#000000', letterSpacing: '0.5px', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.2 }}>
+                {printSettings?.kopNamaPemda || 'PEMERINTAH KABUPATEN KULON PROGO'}
+              </h2>
+              <h1 style={{ fontSize: '15pt', fontWeight: 'bold', margin: '2px 0 3px 0', textTransform: 'uppercase', color: '#000000', letterSpacing: '0.5px', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.2, whiteSpace: 'pre-line' }}>
+                {printSettings?.kopNamaInstansi || 'KALURAHAN KARANGSARI, KAPANEWON PENGASIH'}
+              </h1>
+              {printSettings?.kopAksaraUrl && (
+                <div style={{ textAlign: 'center', margin: '3px 0 4px 0' }}>
+                  <img
+                    src={printSettings.kopAksaraUrl}
+                    alt="Aksara Jawa"
+                    style={{ height: '36px', maxWidth: '85%', objectFit: 'contain', display: 'inline-block' }}
+                  />
+                </div>
+              )}
+              <p style={{ fontSize: '9.5pt', margin: '4px 0 0 0', color: '#000000', lineHeight: 1.35, fontWeight: 'normal', fontFamily: "'Times New Roman', Times, serif" }}>
+                {printSettings?.kopAlamat || 'Jl. Tentara Pelajar No.05, Kopat, Karangsari, Pengasih, Kulon Progo, DIY 55652'}
+              </p>
+              {printSettings?.kopKontak && (
+                <p style={{ fontSize: '9pt', margin: '1px 0 0 0', color: '#000000', lineHeight: 1.35, fontWeight: 'normal', fontFamily: "'Times New Roman', Times, serif" }}>
+                  {printSettings.kopKontak}
+                </p>
+              )}
+            </div>
+
+            {/* Spacer kanan — sama lebar kolom logo agar teks benar-benar simetris di tengah halaman */}
+            <div style={{ width: '90px', flexShrink: 0 }} />
+          </div>
+
+          {/* Garis pemisah ganda khas KOP kedinasan: tebal di atas, tipis di bawah */}
+          <hr style={{ border: 'none', borderTop: '2.5px solid #000000', margin: '0 0 2px 0' }} />
+          <hr style={{ border: 'none', borderTop: '0.75px solid #000000', margin: '0 0 14px 0' }} />
         </div>
 
         <div style={{ textAlign: 'center', marginBottom: '16px' }}>
@@ -1163,7 +1195,7 @@ export function LaporanKinerjaTable({
                   {printSettings?.ttdAtasanNama || printSettings?.ttdKananNama || 'DJOKO PURWANTO'}
                 </strong>
                 <br />
-                {!printSettings?.sembunyikanNip && (printSettings?.ttdAtasanNip || printSettings?.ttdKananNip) && !['admisi', 'admin', 'pamong', '-'].includes(String(printSettings?.ttdAtasanNip || printSettings?.ttdKananNip).toLowerCase().trim()) ? (
+                {!printSettings?.sembunyikanNipAtasan && (printSettings?.ttdAtasanNip || printSettings?.ttdKananNip) && !['admisi', 'admin', 'pamong', '-'].includes(String(printSettings?.ttdAtasanNip || printSettings?.ttdKananNip).toLowerCase().trim()) ? (
                   <div style={{ fontSize: '10.5pt', fontWeight: '600', color: '#000000', marginTop: '2px' }}>
                     NIP. {printSettings.ttdAtasanNip || printSettings.ttdKananNip}
                   </div>
