@@ -50,6 +50,7 @@ interface PresensiData {
   targetJamPulang: string | null;
   durasiKerjaMenit: number | null;
   persentaseHarian: number | null;
+  keterangan?: string | null;
 }
 
 const DEFAULT_LOKASI = {
@@ -67,6 +68,7 @@ export default function PresensiPage() {
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState<'success' | 'error'>('success');
   const [presensiHariIni, setPresensiHariIni] = useState<PresensiData | null>(null);
+  const [currentTime, setCurrentTime] = useState<Date>(new Date());
   const [jamKerja, setJamKerja] = useState<JamKerjaData>({
     jamMasuk: '07:30',
     jamPulang: '15:45',
@@ -76,6 +78,58 @@ export default function PresensiPage() {
     durasiKerjaMenit: 495,
   });
   const watchIdRef = useRef<(() => void) | number | null>(null);
+
+  // Timer realtime untuk pengecekan jam buka / tutup absensi
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Perhitungan status jadwal buka & tutup absensi
+  const jadwalStatus = useMemo(() => {
+    if (!jamKerja?.jamMasuk || !jamKerja?.jamPulang) {
+      return {
+        isBelumBuka: false,
+        isSudahTutup: false,
+        batasBukaStr: '',
+        batasTutupStr: '',
+        jamMasukStr: '',
+        jamPulangStr: '',
+      };
+    }
+
+    const [mH, mM] = jamKerja.jamMasuk.split(':').map(Number);
+    const [pH, pM] = jamKerja.jamPulang.split(':').map(Number);
+
+    const now = currentTime;
+    const jamMasukDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), mH || 0, mM || 0, 0);
+    const jamPulangStandar = new Date(now.getFullYear(), now.getMonth(), now.getDate(), pH || 0, pM || 0, 0);
+
+    const toleransiBuka = jamKerja.toleransiSebelumMasuk ?? 30;
+    const toleransiTutup = jamKerja.toleransiPulang ?? 120;
+
+    const batasBukaAbsen = new Date(jamMasukDate.getTime() - toleransiBuka * 60000);
+    const batasTutupAbsensi = new Date(jamPulangStandar.getTime() + toleransiTutup * 60000);
+
+    const isBelumBuka = now.getTime() < batasBukaAbsen.getTime();
+    const isSudahTutup = now.getTime() > batasTutupAbsensi.getTime();
+
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const formatTime = (d: Date) => `${pad(d.getHours())}:${pad(d.getMinutes())} WIB`;
+
+    return {
+      isBelumBuka,
+      isSudahTutup,
+      batasBukaAbsen,
+      batasTutupAbsensi,
+      batasBukaStr: formatTime(batasBukaAbsen),
+      batasTutupStr: formatTime(batasTutupAbsensi),
+      jamMasukStr: `${pad(mH)}:${pad(mM)} WIB`,
+      jamPulangStr: `${pad(pH)}:${pad(pM)} WIB`,
+    };
+  }, [jamKerja, currentTime]);
 
   // State untuk modal konfirmasi pulang awal
   const [confirmPulangAwal, setConfirmPulangAwal] = useState<{
@@ -451,9 +505,31 @@ export default function PresensiPage() {
                   borderRadius: '6px',
                   border: '1px solid #ddd6fe',
                   lineHeight: '1.4',
+                  marginTop: '8px',
                 }}
               >
                 ℹ️ Jam pulang digeser mundur <b>{presensiHariIni.keterlambatan} menit</b> agar beban kerja Anda tetap terpenuhi <b>{jamKerja.durasiKerjaMenit} menit</b> (100%).
+              </div>
+            )}
+
+            {presensiHariIni?.keterangan?.includes('Jam kerja anda akan berkurang') && (
+              <div
+                style={{
+                  fontSize: '11px',
+                  color: '#b45309',
+                  background: '#fffbeb',
+                  padding: '8px 10px',
+                  borderRadius: '6px',
+                  border: '1px solid #fde68a',
+                  lineHeight: '1.4',
+                  marginTop: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                <span>⚠️</span>
+                <span><b>Peringatan:</b> {presensiHariIni.keterangan} (Batas Tutup: {jadwalStatus.batasTutupStr}).</span>
               </div>
             )}
           </div>
@@ -549,42 +625,152 @@ export default function PresensiPage() {
 
           {/* Tombol Aksi Presensi */}
           <div className="glass-card-static" style={{ padding: '20px' }}>
-            <h3 style={{ fontSize: '12px', fontWeight: '700', color: '#64748b', marginBottom: '14px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              ⏰ Tombol Presensi
-            </h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <h3 style={{ fontSize: '12px', fontWeight: '700', color: '#64748b', margin: 0, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                ⏰ Tombol Presensi
+              </h3>
+              <span
+                style={{
+                  fontSize: '11px',
+                  fontWeight: '700',
+                  padding: '3px 8px',
+                  borderRadius: '6px',
+                  background: jadwalStatus.isBelumBuka ? '#fef3c7' : jadwalStatus.isSudahTutup ? '#fee2e2' : '#ecfdf5',
+                  color: jadwalStatus.isBelumBuka ? '#92400e' : jadwalStatus.isSudahTutup ? '#991b1b' : '#059669',
+                  border: `1px solid ${jadwalStatus.isBelumBuka ? '#fde68a' : jadwalStatus.isSudahTutup ? '#fecaca' : '#a7f3d0'}`,
+                }}
+              >
+                {jadwalStatus.isBelumBuka
+                  ? `🔒 Buka: ${jadwalStatus.batasBukaStr}`
+                  : jadwalStatus.isSudahTutup
+                  ? `🛑 Tutup: ${jadwalStatus.batasTutupStr}`
+                  : `🟢 Buka s.d ${jadwalStatus.batasTutupStr}`}
+              </span>
+            </div>
+
+            {/* Banner info jika belum buka atau sudah tutup */}
+            {jadwalStatus.isBelumBuka && (
+              <div
+                style={{
+                  marginBottom: '12px',
+                  padding: '10px 12px',
+                  borderRadius: '10px',
+                  background: '#fffbeb',
+                  border: '1px solid #fde68a',
+                  color: '#92400e',
+                  fontSize: '12px',
+                  lineHeight: '1.4',
+                  textAlign: 'center',
+                }}
+              >
+                ⏳ <b>Absensi Belum Dibuka.</b> Tombol belum aktif dan baru dapat diklik mulai pukul <b>{jadwalStatus.batasBukaStr}</b> ({jamKerja.toleransiSebelumMasuk} menit sebelum jam masuk).
+              </div>
+            )}
+
+            {jadwalStatus.isSudahTutup && (
+              <div
+                style={{
+                  marginBottom: '12px',
+                  padding: '10px 12px',
+                  borderRadius: '10px',
+                  background: '#fef2f2',
+                  border: '1px solid #fecaca',
+                  color: '#991b1b',
+                  fontSize: '12px',
+                  lineHeight: '1.4',
+                  textAlign: 'center',
+                }}
+              >
+                🛑 <b>Absensi Telah Ditutup.</b> Batas akhir absensi hari ini berakhir pada pukul <b>{jadwalStatus.batasTutupStr}</b>. Tombol presensi dinonaktifkan.
+              </div>
+            )}
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
               <button
+                type="button"
                 onClick={() => handleAbsenClick('masuk')}
-                disabled={loading || !!presensiHariIni?.jamMasuk || !isInRadius}
+                disabled={loading || jadwalStatus.isBelumBuka || jadwalStatus.isSudahTutup || !!presensiHariIni?.jamMasuk || !isInRadius}
                 className="btn-success"
                 style={{
                   padding: '14px 10px',
                   fontSize: '14px',
-                  opacity: presensiHariIni?.jamMasuk || !isInRadius ? 0.45 : 1,
+                  opacity: (loading || jadwalStatus.isBelumBuka || jadwalStatus.isSudahTutup || presensiHariIni?.jamMasuk || !isInRadius) ? 0.45 : 1,
+                  cursor: (loading || jadwalStatus.isBelumBuka || jadwalStatus.isSudahTutup || presensiHariIni?.jamMasuk || !isInRadius) ? 'not-allowed' : 'pointer',
                   flexDirection: 'column',
                   gap: '4px',
                 }}
               >
-                <span style={{ fontSize: '20px' }}>🟢</span>
-                <span>{presensiHariIni?.jamMasuk ? 'Sudah Masuk' : 'Absen Masuk'}</span>
+                <span style={{ fontSize: '20px' }}>
+                  {jadwalStatus.isBelumBuka ? '🔒' : jadwalStatus.isSudahTutup ? '🛑' : presensiHariIni?.jamMasuk ? '✅' : '🟢'}
+                </span>
+                <span style={{ fontWeight: '800' }}>
+                  {jadwalStatus.isBelumBuka
+                    ? 'Absensi Belum Dibuka'
+                    : jadwalStatus.isSudahTutup
+                    ? 'Absensi Telah Ditutup'
+                    : presensiHariIni?.jamMasuk
+                    ? 'Sudah Masuk'
+                    : 'Absen Masuk'}
+                </span>
+                <span style={{ fontSize: '11px', opacity: 0.85, fontWeight: '500' }}>
+                  {jadwalStatus.isBelumBuka
+                    ? `Buka: ${jadwalStatus.batasBukaStr}`
+                    : jadwalStatus.isSudahTutup
+                    ? `Tutup: ${jadwalStatus.batasTutupStr}`
+                    : presensiHariIni?.jamMasuk
+                    ? formatJam(presensiHariIni.jamMasuk)
+                    : !isInRadius
+                    ? 'Di luar radius kantor'
+                    : 'Rekam masuk awal'}
+                </span>
               </button>
 
               <button
+                type="button"
                 onClick={() => handleAbsenClick('pulang')}
-                disabled={loading || !presensiHariIni?.jamMasuk || !!presensiHariIni?.jamPulang || !isInRadius}
+                disabled={loading || jadwalStatus.isBelumBuka || jadwalStatus.isSudahTutup || !presensiHariIni?.jamMasuk || !isInRadius}
                 className="btn-primary"
                 style={{
                   padding: '14px 10px',
                   fontSize: '14px',
-                  opacity: (!presensiHariIni?.jamMasuk || presensiHariIni?.jamPulang || !isInRadius) ? 0.45 : 1,
+                  opacity: (loading || jadwalStatus.isBelumBuka || jadwalStatus.isSudahTutup || !presensiHariIni?.jamMasuk || !isInRadius) ? 0.45 : 1,
+                  cursor: (loading || jadwalStatus.isBelumBuka || jadwalStatus.isSudahTutup || !presensiHariIni?.jamMasuk || !isInRadius) ? 'not-allowed' : 'pointer',
                   flexDirection: 'column',
                   gap: '4px',
                 }}
               >
-                <span style={{ fontSize: '20px' }}>🔴</span>
-                <span>{presensiHariIni?.jamPulang ? 'Sudah Pulang' : 'Absen Pulang'}</span>
+                <span style={{ fontSize: '20px' }}>
+                  {jadwalStatus.isSudahTutup ? '🛑' : jadwalStatus.isBelumBuka ? '🔒' : presensiHariIni?.jamPulang ? '🔄' : '🔴'}
+                </span>
+                <span style={{ fontWeight: '800' }}>
+                  {jadwalStatus.isSudahTutup
+                    ? 'Absensi Telah Ditutup'
+                    : jadwalStatus.isBelumBuka
+                    ? 'Absensi Belum Dibuka'
+                    : !presensiHariIni?.jamMasuk
+                    ? 'Absen Pulang'
+                    : presensiHariIni?.jamPulang
+                    ? 'Perbarui Absen Pulang'
+                    : 'Absen Pulang'}
+                </span>
+                <span style={{ fontSize: '11px', opacity: 0.85, fontWeight: '500' }}>
+                  {jadwalStatus.isSudahTutup
+                    ? `Batas: ${jadwalStatus.batasTutupStr}`
+                    : jadwalStatus.isBelumBuka
+                    ? `Buka: ${jadwalStatus.batasBukaStr}`
+                    : !presensiHariIni?.jamMasuk
+                    ? 'Wajib masuk dulu'
+                    : presensiHariIni?.jamPulang
+                    ? `Terakhir: ${new Date(presensiHariIni.jamPulang).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB`
+                    : !isInRadius
+                    ? 'Di luar radius kantor'
+                    : 'Rekam waktu pulang'}
+                </span>
               </button>
+            </div>
+
+            <div style={{ marginTop: '10px', fontSize: '11px', color: '#64748b', textAlign: 'center', lineHeight: '1.4' }}>
+              💡 Absen masuk merekam waktu <b>paling awal</b>. Absen pulang dapat diperbarui hingga batas tutup untuk merekam kepulangan <b>paling terakhir</b>.
             </div>
           </div>
 

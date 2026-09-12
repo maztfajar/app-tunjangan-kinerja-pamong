@@ -140,8 +140,15 @@ export async function POST(request: Request) {
 
     // ==================== ABSEN MASUK ====================
     if (tipe === 'masuk') {
+      // Poin 5 (Masuk): Jika sudah pernah absen masuk hari ini, pertahankan data masuk paling awal!
       if (presensiHariIni?.jamMasuk) {
-        return NextResponse.json({ error: 'Anda sudah absen masuk hari ini' }, { status: 400 });
+        const jamMasukAwalStr = new Date(presensiHariIni.jamMasuk).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+        return NextResponse.json({
+          success: true,
+          message: `Absen masuk sudah tercatat pada pukul ${jamMasukAwalStr} WIB. Data presensi masuk paling awal tetap dipertahankan.`,
+          presensi: presensiHariIni,
+          alreadyRecorded: true,
+        });
       }
 
       // Cek sinkronisasi hari kerja & kalender hari libur
@@ -166,9 +173,7 @@ export async function POST(request: Request) {
             error: `Hari ini adalah hari libur: ${hariLiburRecord.keterangan}. Presensi pamong dinonaktifkan.` 
           }, { status: 400 });
         }
-        // Jika hariLiburRecord.isLibur === false: Admin menetapkan hari ini sebagai HARI MASUK KERJA (Lembur/Override), presensi dibuka!
       } else {
-        // Tidak ada penetapan khusus (status normal/bersih)
         if (dayOfWeek === 0 || dayOfWeek === 6) {
           return NextResponse.json({ 
             error: 'Hari ini adalah hari libur (akhir pekan). Presensi pamong dinonaktifkan.' 
@@ -176,23 +181,25 @@ export async function POST(request: Request) {
         }
       }
 
-      // Hitung batas buka absen masuk
+      // Hitung batas buka & batas tutup absen
       const jamMasukDate = timeOnDate(today, masukParsed.hour, masukParsed.minute);
+      const jamPulangStandar = timeOnDate(today, pulangParsed.hour, pulangParsed.minute);
       const batasBukaAbsen = new Date(jamMasukDate.getTime() - toleransiSebelumMasuk * 60000);
+      const batasTutupAbsensi = new Date(jamPulangStandar.getTime() + toleransiPulang * 60000);
 
+      // Poin 2: Cek apakah absen belum dibuka
       if (now < batasBukaAbsen) {
         const bukaJam = batasBukaAbsen.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
         return NextResponse.json({ 
-          error: `Absen masuk belum dibuka. Batas buka pukul ${bukaJam} WIB (${toleransiSebelumMasuk} menit sebelum jam masuk).` 
+          error: `Absensi belum dibuka. Absen masuk dibuka mulai pukul ${bukaJam} WIB (${toleransiSebelumMasuk} menit sebelum jam masuk).` 
         }, { status: 400 });
       }
 
-      // Hitung batas akhir absen masuk (tidak boleh setelah jam pulang standar)
-      const jamPulangStandar = timeOnDate(today, pulangParsed.hour, pulangParsed.minute);
-      if (now >= jamPulangStandar) {
-        const pulangJam = jamPulangStandar.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+      // Poin 3: Cek apakah sudah melewati batas tutup absensi
+      if (now > batasTutupAbsensi) {
+        const tutupJam = batasTutupAbsensi.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
         return NextResponse.json({ 
-          error: `Batas waktu presensi masuk telah berakhir. Jam operasional kerja hari ini telah selesai pada pukul ${pulangJam} WIB.` 
+          error: `Absensi telah ditutup. Batas akhir absensi hari ini telah berakhir pada pukul ${tutupJam} WIB.` 
         }, { status: 400 });
       }
 
@@ -212,9 +219,17 @@ export async function POST(request: Request) {
         persenTerlambat = parseFloat(((keterlambatanMenit / durasiKerjaStandar) * 100).toFixed(2));
       }
 
-      // Target jam pulang: Opsi A — wajib genap durasi kerja
-      // jamPulangStandar + keterlambatan = mundur agar total tetap durasiKerjaStandar
-      const targetJamPulang = new Date(jamPulangStandar.getTime() + keterlambatanMenit * 60000);
+      // Poin 4: Target jam pulang & pengecekan melebihi batas tutup
+      const targetIdeal = new Date(jamPulangStandar.getTime() + keterlambatanMenit * 60000);
+      let targetJamPulang = targetIdeal;
+      let keterangan = 'e-presensi';
+      let pesanMelebihiBatas = '';
+
+      if (targetIdeal > batasTutupAbsensi) {
+        targetJamPulang = batasTutupAbsensi;
+        keterangan = 'Jam kerja anda akan berkurang karena melebihi Batas Tutup Absensi';
+        pesanMelebihiBatas = ' ⚠️ Jam kerja anda akan berkurang karena melebihi Batas Tutup Absensi.';
+      }
 
       const presensiData = {
         jamMasuk: now,
@@ -224,7 +239,7 @@ export async function POST(request: Request) {
         keterlambatan: keterlambatanMenit,
         persenTerlambat,
         targetJamPulang,
-        keterangan: 'e-presensi',
+        keterangan,
         lokasiTugas: lokasiTugas || 'Kantor',
         suket,
       };
@@ -249,7 +264,7 @@ export async function POST(request: Request) {
       if (keterlambatanMenit > 0) {
         messageDetail += ` (${keterlambatanMenit} menit)`;
       }
-      messageDetail += `. Target pulang: ${targetPulangStr} WIB`;
+      messageDetail += `. Target pulang: ${targetPulangStr} WIB.${pesanMelebihiBatas}`;
 
       return NextResponse.json({
         success: true,
@@ -262,11 +277,19 @@ export async function POST(request: Request) {
       if (!presensiHariIni?.jamMasuk) {
         return NextResponse.json({ error: 'Anda belum absen masuk hari ini' }, { status: 400 });
       }
-      if (presensiHariIni.jamPulang) {
-        return NextResponse.json({ error: 'Anda sudah absen pulang hari ini' }, { status: 400 });
-      }
 
       const jamMasukAktual = new Date(presensiHariIni.jamMasuk);
+      const jamPulangStandar = timeOnDate(today, pulangParsed.hour, pulangParsed.minute);
+      const batasTutupAbsensi = new Date(jamPulangStandar.getTime() + toleransiPulang * 60000);
+
+      // Poin 3: Batas Tutup Absen Pulang
+      if (now > batasTutupAbsensi) {
+        const tutupJam = batasTutupAbsensi.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+        return NextResponse.json({ 
+          error: `Absensi telah ditutup. Batas akhir absensi hari ini telah berakhir pada pukul ${tutupJam} WIB.` 
+        }, { status: 400 });
+      }
+
       const selisihMenitSejakMasuk = diffMenit(now, jamMasukAktual);
       if (selisihMenitSejakMasuk < 3) {
         return NextResponse.json({ 
@@ -274,19 +297,20 @@ export async function POST(request: Request) {
         }, { status: 400 });
       }
 
+      // Poin 5 (Pulang): Rekam absensi paling terakhir (Update jika sudah ada jam pulang)
+      const isPembaruanPulang = Boolean(presensiHariIni.jamPulang);
+      if (isPembaruanPulang && presensiHariIni.jamPulang && now <= new Date(presensiHariIni.jamPulang)) {
+        return NextResponse.json({
+          success: true,
+          message: `Absen pulang sebelumnya sudah tercatat pada waktu yang lebih akhir (${new Date(presensiHariIni.jamPulang).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB).`,
+          presensi: presensiHariIni,
+        });
+      }
+
       // Target jam pulang dari record presensi (sudah dihitung saat absen masuk)
       const targetPulang = presensiHariIni.targetJamPulang
         ? new Date(presensiHariIni.targetJamPulang)
         : timeOnDate(today, pulangParsed.hour, pulangParsed.minute);
-
-      // Cek batas toleransi pulang (absen ditutup setelah X menit dari target)
-      const batasTutupPulang = new Date(targetPulang.getTime() + toleransiPulang * 60000);
-      if (now > batasTutupPulang) {
-        const tutupJam = batasTutupPulang.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-        return NextResponse.json({ 
-          error: `Batas waktu absensi pulang telah ditutup pada pukul ${tutupJam} WIB. Hubungi admin untuk pengajuan keterangan.` 
-        }, { status: 400 });
-      }
 
       // Hitung mendahului (pulang cepat)
       const selisihPulangMenit = diffMenit(now, targetPulang);
@@ -320,11 +344,15 @@ export async function POST(request: Request) {
         },
       });
 
-      let message = 'Berhasil absen pulang.';
+      const jamPulangBaruStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+      let message = isPembaruanPulang
+        ? `Absen pulang berhasil diperbarui ke waktu paling akhir (${jamPulangBaruStr} WIB).`
+        : `Berhasil absen pulang pada pukul ${jamPulangBaruStr} WIB.`;
+
       if (statusPulang === 'Pulang Cepat') {
         message += ` ⚠️ Pulang ${mendahuluiMenit} menit lebih cepat dari target.`;
       }
-      message += ` Jam kerja hari ini: ${Math.floor(durasiKerjaAktualMenit / 60)}j ${durasiKerjaAktualMenit % 60}m (${persentaseHarian}%)`;
+      message += ` Total jam kerja hari ini: ${Math.floor(durasiKerjaAktualMenit / 60)}j ${durasiKerjaAktualMenit % 60}m (${persentaseHarian}%).`;
 
       return NextResponse.json({
         success: true,

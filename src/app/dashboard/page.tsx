@@ -38,6 +38,7 @@ interface PresensiHariIni {
   durasiKerjaMenit?: number | null;
   persentaseHarian?: number | null;
   lokasiTugas?: string | null;
+  keterangan?: string | null;
 }
 
 interface AktifitasItem {
@@ -238,6 +239,44 @@ export default function UserDashboard() {
       helperText: 'Pamong wajib absen masuk & pulang sesuai jam kerja',
     };
   }, [currentTime, hariLiburList]);
+
+  // Perhitungan status jadwal buka & tutup absensi
+  const jadwalStatus = useMemo(() => {
+    if (!currentTime || !jamKerja?.jamMasuk || !jamKerja?.jamPulang) {
+      return {
+        isBelumBuka: false,
+        isSudahTutup: false,
+        batasBukaStr: '',
+        batasTutupStr: '',
+      };
+    }
+
+    const [mH, mM] = jamKerja.jamMasuk.split(':').map(Number);
+    const [pH, pM] = jamKerja.jamPulang.split(':').map(Number);
+
+    const now = currentTime;
+    const jamMasukDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), mH || 0, mM || 0, 0);
+    const jamPulangStandar = new Date(now.getFullYear(), now.getMonth(), now.getDate(), pH || 0, pM || 0, 0);
+
+    const toleransiBuka = jamKerja.toleransiSebelumMasuk ?? 30;
+    const toleransiTutup = jamKerja.toleransiPulang ?? 120;
+
+    const batasBukaAbsen = new Date(jamMasukDate.getTime() - toleransiBuka * 60000);
+    const batasTutupAbsensi = new Date(jamPulangStandar.getTime() + toleransiTutup * 60000);
+
+    const isBelumBuka = now.getTime() < batasBukaAbsen.getTime();
+    const isSudahTutup = now.getTime() > batasTutupAbsensi.getTime();
+
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const formatTime = (d: Date) => `${pad(d.getHours())}:${pad(d.getMinutes())} WIB`;
+
+    return {
+      isBelumBuka,
+      isSudahTutup,
+      batasBukaStr: formatTime(batasBukaAbsen),
+      batasTutupStr: formatTime(batasTutupAbsensi),
+    };
+  }, [currentTime, jamKerja]);
 
   const stopGpsTracking = useCallback(() => {
     if (watchIdRef.current === null) return;
@@ -859,6 +898,28 @@ export default function UserDashboard() {
             </div>
           </div>
 
+          {/* Peringatan jika jam kerja terpotong batas tutup */}
+          {presensiHariIni?.keterangan?.includes('Jam kerja anda akan berkurang') && (
+            <div
+              style={{
+                padding: '10px 14px',
+                borderRadius: '10px',
+                background: '#fffbeb',
+                border: '1px solid #fde68a',
+                color: '#b45309',
+                fontSize: '12px',
+                fontWeight: '600',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                lineHeight: '1.4',
+              }}
+            >
+              <span>⚠️</span>
+              <span><b>Peringatan:</b> {presensiHariIni.keterangan} (Batas Tutup: {jadwalStatus.batasTutupStr}).</span>
+            </div>
+          )}
+
           {/* Feedback Pesan Absensi */}
           {absenFeedback && (
             <div
@@ -876,6 +937,41 @@ export default function UserDashboard() {
             </div>
           )}
 
+          {/* Banner Status Jadwal Buka / Tutup */}
+          {jadwalStatus.isBelumBuka && (
+            <div
+              style={{
+                padding: '8px 12px',
+                borderRadius: '8px',
+                background: '#fffbeb',
+                border: '1px solid #fde68a',
+                color: '#92400e',
+                fontSize: '12px',
+                fontWeight: '600',
+                textAlign: 'center',
+              }}
+            >
+              ⏳ Absensi belum dibuka (Tombol aktif pukul {jadwalStatus.batasBukaStr})
+            </div>
+          )}
+
+          {jadwalStatus.isSudahTutup && (
+            <div
+              style={{
+                padding: '8px 12px',
+                borderRadius: '8px',
+                background: '#fef2f2',
+                border: '1px solid #fecaca',
+                color: '#991b1b',
+                fontSize: '12px',
+                fontWeight: '600',
+                textAlign: 'center',
+              }}
+            >
+              🛑 Absensi telah ditutup (Batas akhir pukul {jadwalStatus.batasTutupStr})
+            </div>
+          )}
+
           {/* =================================================================
               TOMBOL AKSI PRESENSI LANGSUNG (TAMPIL DI ATAS, TANPA PERLU SCROLL)
               ================================================================= */}
@@ -885,6 +981,8 @@ export default function UserDashboard() {
               onClick={() => handleAbsenClick('masuk')}
               disabled={
                 absenLoading ||
+                jadwalStatus.isBelumBuka ||
+                jadwalStatus.isSudahTutup ||
                 !!presensiHariIni?.jamMasuk ||
                 !isInRadius ||
                 (todayCalendarStatus ? !todayCalendarStatus.isWorkDay : false)
@@ -896,7 +994,18 @@ export default function UserDashboard() {
                 fontWeight: '800',
                 justifyContent: 'center',
                 borderRadius: '12px',
+                cursor:
+                  absenLoading ||
+                  jadwalStatus.isBelumBuka ||
+                  jadwalStatus.isSudahTutup ||
+                  !!presensiHariIni?.jamMasuk ||
+                  !isInRadius ||
+                  (todayCalendarStatus ? !todayCalendarStatus.isWorkDay : false)
+                    ? 'not-allowed'
+                    : 'pointer',
                 opacity:
+                  jadwalStatus.isBelumBuka ||
+                  jadwalStatus.isSudahTutup ||
                   !!presensiHariIni?.jamMasuk ||
                   !isInRadius ||
                   (todayCalendarStatus ? !todayCalendarStatus.isWorkDay : false)
@@ -904,18 +1013,26 @@ export default function UserDashboard() {
                     : 1,
                 background:
                   todayCalendarStatus && !todayCalendarStatus.isWorkDay ? '#94a3b8' : undefined,
-                boxShadow: !!presensiHariIni?.jamMasuk || !isInRadius ? 'none' : '0 4px 14px rgba(16, 185, 129, 0.35)',
+                boxShadow: !!presensiHariIni?.jamMasuk || !isInRadius || jadwalStatus.isBelumBuka || jadwalStatus.isSudahTutup ? 'none' : '0 4px 14px rgba(16, 185, 129, 0.35)',
                 touchAction: 'manipulation',
               }}
             >
               {absenLoading ? (
                 <div className="spinner" style={{ width: '16px', height: '16px', borderWidth: '2px' }} />
+              ) : jadwalStatus.isBelumBuka ? (
+                '🔒'
+              ) : jadwalStatus.isSudahTutup ? (
+                '🛑'
               ) : todayCalendarStatus && !todayCalendarStatus.isWorkDay ? (
                 '🔴'
               ) : (
                 '🟢'
               )}{' '}
-              {presensiHariIni?.jamMasuk
+              {jadwalStatus.isBelumBuka
+                ? 'Belum Buka'
+                : jadwalStatus.isSudahTutup
+                ? 'Absen Ditutup'
+                : presensiHariIni?.jamMasuk
                 ? 'Sudah Masuk'
                 : todayCalendarStatus && !todayCalendarStatus.isWorkDay
                 ? 'Hari Libur'
@@ -927,9 +1044,11 @@ export default function UserDashboard() {
               onClick={() => handleAbsenClick('pulang')}
               disabled={
                 absenLoading ||
+                jadwalStatus.isBelumBuka ||
+                jadwalStatus.isSudahTutup ||
                 !presensiHariIni?.jamMasuk ||
-                !!presensiHariIni?.jamPulang ||
-                !isInRadius
+                !isInRadius ||
+                (todayCalendarStatus ? !todayCalendarStatus.isWorkDay : false)
               }
               className="btn-primary"
               style={{
@@ -938,18 +1057,47 @@ export default function UserDashboard() {
                 fontWeight: '800',
                 justifyContent: 'center',
                 borderRadius: '12px',
+                cursor:
+                  absenLoading ||
+                  jadwalStatus.isBelumBuka ||
+                  jadwalStatus.isSudahTutup ||
+                  !presensiHariIni?.jamMasuk ||
+                  !isInRadius ||
+                  (todayCalendarStatus ? !todayCalendarStatus.isWorkDay : false)
+                    ? 'not-allowed'
+                    : 'pointer',
                 opacity:
-                  !presensiHariIni?.jamMasuk || !!presensiHariIni?.jamPulang || !isInRadius ? 0.45 : 1,
-                boxShadow: !presensiHariIni?.jamMasuk || !!presensiHariIni?.jamPulang || !isInRadius ? 'none' : '0 4px 14px rgba(67, 97, 238, 0.35)',
+                  jadwalStatus.isBelumBuka ||
+                  jadwalStatus.isSudahTutup ||
+                  !presensiHariIni?.jamMasuk ||
+                  !isInRadius ||
+                  (todayCalendarStatus ? !todayCalendarStatus.isWorkDay : false)
+                    ? 0.45
+                    : 1,
+                boxShadow: !presensiHariIni?.jamMasuk || !isInRadius || jadwalStatus.isBelumBuka || jadwalStatus.isSudahTutup ? 'none' : '0 4px 14px rgba(67, 97, 238, 0.35)',
                 touchAction: 'manipulation',
               }}
             >
               {absenLoading ? (
                 <div className="spinner" style={{ width: '16px', height: '16px', borderWidth: '2px' }} />
+              ) : jadwalStatus.isSudahTutup ? (
+                '🛑'
+              ) : jadwalStatus.isBelumBuka ? (
+                '🔒'
+              ) : presensiHariIni?.jamPulang ? (
+                '🔄'
               ) : (
                 '🔴'
               )}{' '}
-              {presensiHariIni?.jamPulang ? 'Sudah Pulang' : 'Absen Pulang'}
+              {jadwalStatus.isSudahTutup
+                ? 'Absen Ditutup'
+                : jadwalStatus.isBelumBuka
+                ? 'Belum Buka'
+                : !presensiHariIni?.jamMasuk
+                ? 'Absen Pulang'
+                : presensiHariIni?.jamPulang
+                ? 'Perbarui Pulang'
+                : 'Absen Pulang'}
             </button>
           </div>
 

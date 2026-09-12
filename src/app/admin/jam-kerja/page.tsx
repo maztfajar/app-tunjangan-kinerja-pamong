@@ -11,6 +11,141 @@ interface JamKerjaData {
   durasiKerjaMenit: number;
 }
 
+function TimePicker24({
+  label,
+  value,
+  onChange,
+  helperText,
+}: {
+  label: string;
+  value: string;
+  onChange: (val: string) => void;
+  helperText?: string;
+}) {
+  const [rawH, rawM] = (value || '00:00').split(':');
+  const selectedH = String(Number(rawH) || 0).padStart(2, '0');
+  const selectedM = String(Number(rawM) || 0).padStart(2, '0');
+
+  const hours = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
+  const minutes = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      <label
+        style={{
+          fontSize: '12px',
+          fontWeight: '700',
+          color: '#334155',
+          textTransform: 'uppercase',
+          letterSpacing: '0.04em',
+        }}
+      >
+        {label}
+      </label>
+
+      {/* Modern Clock Container */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          background: '#f8fafc',
+          borderRadius: '14px',
+          border: '1.5px solid #e2e8f0',
+          padding: '8px 14px',
+          gap: '10px',
+          transition: 'all 0.2s ease',
+        }}
+      >
+        {/* Kolom Jam (00 - 23) */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <span style={{ fontSize: '10px', fontWeight: '600', color: '#94a3b8', letterSpacing: '0.08em', marginBottom: '3px' }}>
+            JAM
+          </span>
+          <select
+            value={selectedH}
+            onChange={(e) => onChange(`${e.target.value}:${selectedM}`)}
+            style={{
+              width: '100%',
+              background: '#ffffff',
+              border: '1px solid #cbd5e1',
+              borderRadius: '8px',
+              padding: '7px 10px',
+              textAlign: 'center',
+              fontSize: '15px',
+              fontWeight: '400',
+              color: '#0f172a',
+              cursor: 'pointer',
+              outline: 'none',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+            }}
+          >
+            {hours.map((hr) => (
+              <option key={hr} value={hr}>
+                {hr}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Separator Titik Dua */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: '15px' }}>
+          <span style={{ fontSize: '16px', fontWeight: '500', color: '#64748b' }}>:</span>
+        </div>
+
+        {/* Kolom Menit (00 - 59) */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <span style={{ fontSize: '10px', fontWeight: '600', color: '#94a3b8', letterSpacing: '0.08em', marginBottom: '3px' }}>
+            MENIT
+          </span>
+          <select
+            value={selectedM}
+            onChange={(e) => onChange(`${selectedH}:${e.target.value}`)}
+            style={{
+              width: '100%',
+              background: '#ffffff',
+              border: '1px solid #cbd5e1',
+              borderRadius: '8px',
+              padding: '7px 10px',
+              textAlign: 'center',
+              fontSize: '15px',
+              fontWeight: '400',
+              color: '#0f172a',
+              cursor: 'pointer',
+              outline: 'none',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+            }}
+          >
+            {minutes.map((mn) => (
+              <option key={mn} value={mn}>
+                {mn}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Sub Info & Badge Waktu */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 2px' }}>
+        <span style={{ fontSize: '11px', color: '#64748b' }}>
+          {helperText || `Waktu standar: ${value} WIB`}
+        </span>
+        <span
+          style={{
+            fontSize: '12px',
+            fontWeight: '800',
+            color: '#4338ca',
+            background: '#e0e7ff',
+            padding: '2px 8px',
+            borderRadius: '6px',
+          }}
+        >
+          {value} WIB
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export default function JamKerjaPage() {
   const [data, setData] = useState<JamKerjaData>({
     jamMasuk: '07:30',
@@ -114,7 +249,7 @@ export default function JamKerjaPage() {
           Setting Jam Kerja & Toleransi
         </h2>
         <p style={{ color: '#64748b', fontSize: '14px' }}>
-          Atur jam kerja standar, toleransi keterlambatan, dan batas presensi pamong.
+          Atur jam kerja standar, toleransi keterlambatan, dan batas buka/tutup presensi pamong.
         </p>
       </div>
 
@@ -125,28 +260,20 @@ export default function JamKerjaPage() {
             🕐 Jam Kerja Standar
           </h3>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div>
-              <label className="input-label">Jam Masuk</label>
-              <input
-                type="time"
-                className="input-field"
-                value={data.jamMasuk}
-                onChange={(e) => setData({ ...data, jamMasuk: e.target.value })}
-                style={{ background: '#ffffff', color: '#0f172a' }}
-              />
-            </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <TimePicker24
+              label="Jam Masuk Standar"
+              value={data.jamMasuk}
+              onChange={(val) => setData({ ...data, jamMasuk: val })}
+              helperText={`Pukul ${data.jamMasuk} WIB (Buka presensi: ${computeBukaAbsen()} WIB)`}
+            />
 
-            <div>
-              <label className="input-label">Jam Pulang</label>
-              <input
-                type="time"
-                className="input-field"
-                value={data.jamPulang}
-                onChange={(e) => setData({ ...data, jamPulang: e.target.value })}
-                style={{ background: '#ffffff', color: '#0f172a' }}
-              />
-            </div>
+            <TimePicker24
+              label="Jam Pulang Standar"
+              value={data.jamPulang}
+              onChange={(val) => setData({ ...data, jamPulang: val })}
+              helperText={`Pukul ${data.jamPulang} WIB (Tutup presensi: ${computeBatasPulang()} WIB)`}
+            />
 
             <div style={{
               padding: '14px',
