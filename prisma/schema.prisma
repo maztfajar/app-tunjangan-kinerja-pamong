@@ -55,6 +55,13 @@ model JamKerja {
   toleransiKeterlambatan Int      @default(15)   // menit — batas telat yang masih dimaafkan (jam pulang tetap mundur)
   toleransiPulang        Int      @default(120)  // menit — setelah target pulang, batas absen ditutup
   durasiKerjaMenit       Int      @default(495)  // 8 jam 15 menit = 495 menit
+
+  // Pengaturan Khusus Hari Jumat
+  isJumatKhusus          Boolean  @default(true) // true = hari jumat memiliki jam kerja tersendiri
+  jamMasukJumat          String   @default("07:30")
+  jamPulangJumat         String   @default("15:30")
+  durasiKerjaJumatMenit  Int      @default(480)  // 8 jam 0 menit = 480 menit
+
   updatedAt              DateTime @updatedAt
 }
 

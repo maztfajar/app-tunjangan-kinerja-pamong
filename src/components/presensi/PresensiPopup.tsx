@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import { IconMapPin, IconClock, IconClose } from '@/components/ui/Icons';
+import { getEffectiveJamKerja } from '@/lib/jam-kerja-helper';
 
 const MapPicker = dynamic(() => import('@/components/presensi/MapPicker'), {
   ssr: false,
@@ -34,6 +35,10 @@ interface JamKerjaData {
   toleransiKeterlambatan: number;
   toleransiPulang: number;
   durasiKerjaMenit: number;
+  isJumatKhusus?: boolean;
+  jamMasukJumat?: string;
+  jamPulangJumat?: string;
+  durasiKerjaJumatMenit?: number;
 }
 
 interface PresensiData {
@@ -173,7 +178,7 @@ export default function PresensiPopup({ isOpen, onClose, onPresensiDone }: Prese
     return { type: 'reguler' as const, isWorkDay: true, label: '💼 Hari Kerja Efektif' };
   }, [currentTime, hariLiburList]);
 
-  // Perhitungan status jadwal buka & tutup absensi
+  // Perhitungan status jadwal buka & tutup absensi (mendukung jadwal khusus Jumat)
   const jadwalStatus = useMemo(() => {
     if (!currentTime || !jamKerja?.jamMasuk || !jamKerja?.jamPulang) {
       return {
@@ -181,18 +186,20 @@ export default function PresensiPopup({ isOpen, onClose, onPresensiDone }: Prese
         isSudahTutup: false,
         batasBukaStr: '',
         batasTutupStr: '',
+        effective: null,
       };
     }
 
-    const [mH, mM] = jamKerja.jamMasuk.split(':').map(Number);
-    const [pH, pM] = jamKerja.jamPulang.split(':').map(Number);
+    const effective = getEffectiveJamKerja(jamKerja, currentTime);
+    const [mH, mM] = effective.jamMasuk.split(':').map(Number);
+    const [pH, pM] = effective.jamPulang.split(':').map(Number);
 
     const now = currentTime;
     const jamMasukDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), mH || 0, mM || 0, 0);
     const jamPulangStandar = new Date(now.getFullYear(), now.getMonth(), now.getDate(), pH || 0, pM || 0, 0);
 
-    const toleransiBuka = jamKerja.toleransiSebelumMasuk ?? 30;
-    const toleransiTutup = jamKerja.toleransiPulang ?? 120;
+    const toleransiBuka = effective.toleransiSebelumMasuk ?? 30;
+    const toleransiTutup = effective.toleransiPulang ?? 120;
 
     const batasBukaAbsen = new Date(jamMasukDate.getTime() - toleransiBuka * 60000);
     const batasTutupAbsensi = new Date(jamPulangStandar.getTime() + toleransiTutup * 60000);
@@ -208,6 +215,7 @@ export default function PresensiPopup({ isOpen, onClose, onPresensiDone }: Prese
       isSudahTutup,
       batasBukaStr: formatTime(batasBukaAbsen),
       batasTutupStr: formatTime(batasTutupAbsensi),
+      effective,
     };
   }, [currentTime, jamKerja]);
 
@@ -450,7 +458,8 @@ export default function PresensiPopup({ isOpen, onClose, onPresensiDone }: Prese
       const now = Date.now();
       if (now < targetTime) {
         const diffMenit = Math.ceil((targetTime - now) / 60000);
-        const durasi = jamKerja?.durasiKerjaMenit || 495;
+        const effective = getEffectiveJamKerja(jamKerja, new Date());
+        const durasi = effective.durasiKerjaMenit || 495;
         const persen = parseFloat(((diffMenit / durasi) * 100).toFixed(2));
         const targetStr = new Date(presensiHariIni.targetJamPulang).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB';
         setConfirmPulangAwal({
@@ -1069,7 +1078,7 @@ export default function PresensiPopup({ isOpen, onClose, onPresensiDone }: Prese
                       <div style={{ fontSize: '15px', fontWeight: '800', color: '#7c3aed', marginTop: '2px' }}>
                         {presensiHariIni?.targetJamPulang
                           ? new Date(presensiHariIni.targetJamPulang).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
-                          : jamKerja.jamPulang}
+                          : (jadwalStatus.effective?.jamPulang || jamKerja.jamPulang)}
                       </div>
                     </div>
                     <div>

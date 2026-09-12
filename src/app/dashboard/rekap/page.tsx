@@ -30,6 +30,10 @@ interface JamKerjaData {
   toleransiKeterlambatan: number;
   toleransiPulang: number;
   durasiKerjaMenit: number;
+  isJumatKhusus?: boolean;
+  jamMasukJumat?: string;
+  jamPulangJumat?: string;
+  durasiKerjaJumatMenit?: number;
 }
 
 interface HariLiburItem {
@@ -241,19 +245,30 @@ export default function RekapPage() {
   }, 0);
 
   const totalMendahuluiMenit = presensi.reduce((sum, p) => sum + (p.mendahului || 0), 0);
-  const durasiStandar = jamKerja?.durasiKerjaMenit || 495;
-
   // Count hari kerja efektif in this month (respects admin overrides)
-  const hariKerjaEfektif = allDays.filter((d) => {
+  const hariKerjaEfektifList = allDays.filter((d) => {
     const override = getOverrideMasuk(d);
     if (override) return true;
     if (isWeekend(d)) return false;
     if (getHariLibur(d)) return false;
     return true;
-  }).length;
+  });
+  const hariKerjaEfektif = hariKerjaEfektifList.length;
+
+  const isJumatKhusus = jamKerja?.isJumatKhusus ?? true;
+  const durasiReguler = jamKerja?.durasiKerjaMenit || 495;
+  const durasiJumat = jamKerja?.durasiKerjaJumatMenit || 480;
+
+  // Hitung totalExpectedMenit dinamis: membedakan hari reguler (Senin–Kamis) vs hari Jumat
+  const totalExpectedMenit = hariKerjaEfektifList.reduce((sum, d) => {
+    const isFriday = d.getDay() === 5;
+    return sum + (isFriday && isJumatKhusus ? durasiJumat : durasiReguler);
+  }, 0);
+
+  // Total jam kerja aktual pamong
+  const totalAktualMenit = presensi.reduce((sum, p) => sum + (p.durasiKerjaMenit || 0), 0);
 
   // Potongan percentages (total late/early minutes / total expected work minutes * 100)
-  const totalExpectedMenit = hariKerjaEfektif * durasiStandar;
   const persenPotonganTerlambat = totalExpectedMenit > 0
     ? parseFloat(((totalTerlambatMenit / totalExpectedMenit) * 100).toFixed(2))
     : 0;
@@ -347,6 +362,44 @@ export default function RekapPage() {
             </div>
             <div style={{ fontSize: '12px', color: '#64748b', marginTop: '6px' }}>
               Total Potongan
+            </div>
+          </div>
+
+          {/* Target Jam Kerja Wajib */}
+          <div style={{
+            padding: '16px',
+            borderRadius: '12px',
+            background: '#eff6ff',
+            border: '1px solid #bfdbfe',
+            textAlign: 'center',
+          }}>
+            <div style={{ fontSize: '20px', fontWeight: '800', color: '#1d4ed8' }}>
+              {Math.floor(totalExpectedMenit / 60)}j {totalExpectedMenit % 60}m
+            </div>
+            <div style={{ fontSize: '11px', color: '#1d4ed8', marginTop: '2px' }}>
+              {hariKerjaEfektif} hari kerja
+            </div>
+            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '6px', fontStyle: 'italic' }}>
+              Target Jam Kerja Wajib
+            </div>
+          </div>
+
+          {/* Realisasi Jam Kerja Aktual */}
+          <div style={{
+            padding: '16px',
+            borderRadius: '12px',
+            background: '#f0fdf4',
+            border: '1px solid #bbf7d0',
+            textAlign: 'center',
+          }}>
+            <div style={{ fontSize: '20px', fontWeight: '800', color: '#15803d' }}>
+              {Math.floor(totalAktualMenit / 60)}j {totalAktualMenit % 60}m
+            </div>
+            <div style={{ fontSize: '11px', color: '#15803d', marginTop: '2px' }}>
+              {totalExpectedMenit > 0 ? ((totalAktualMenit / totalExpectedMenit) * 100).toFixed(1) : 0}% tercapai
+            </div>
+            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '6px', fontStyle: 'italic' }}>
+              Jam Kerja Aktual
             </div>
           </div>
         </div>

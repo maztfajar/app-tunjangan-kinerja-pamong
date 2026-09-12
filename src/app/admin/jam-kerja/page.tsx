@@ -9,6 +9,10 @@ interface JamKerjaData {
   toleransiKeterlambatan: number;
   toleransiPulang: number;
   durasiKerjaMenit: number;
+  isJumatKhusus: boolean;
+  jamMasukJumat: string;
+  jamPulangJumat: string;
+  durasiKerjaJumatMenit: number;
 }
 
 function TimePicker24({
@@ -16,11 +20,13 @@ function TimePicker24({
   value,
   onChange,
   helperText,
+  disabled = false,
 }: {
   label: string;
   value: string;
   onChange: (val: string) => void;
   helperText?: string;
+  disabled?: boolean;
 }) {
   const [rawH, rawM] = (value || '00:00').split(':');
   const selectedH = String(Number(rawH) || 0).padStart(2, '0');
@@ -30,7 +36,7 @@ function TimePicker24({
   const minutes = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', opacity: disabled ? 0.6 : 1 }}>
       <label
         style={{
           fontSize: '12px',
@@ -63,6 +69,7 @@ function TimePicker24({
           </span>
           <select
             value={selectedH}
+            disabled={disabled}
             onChange={(e) => onChange(`${e.target.value}:${selectedM}`)}
             style={{
               width: '100%',
@@ -74,7 +81,7 @@ function TimePicker24({
               fontSize: '15px',
               fontWeight: '400',
               color: '#0f172a',
-              cursor: 'pointer',
+              cursor: disabled ? 'not-allowed' : 'pointer',
               outline: 'none',
               boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
             }}
@@ -99,6 +106,7 @@ function TimePicker24({
           </span>
           <select
             value={selectedM}
+            disabled={disabled}
             onChange={(e) => onChange(`${selectedH}:${e.target.value}`)}
             style={{
               width: '100%',
@@ -110,7 +118,7 @@ function TimePicker24({
               fontSize: '15px',
               fontWeight: '400',
               color: '#0f172a',
-              cursor: 'pointer',
+              cursor: disabled ? 'not-allowed' : 'pointer',
               outline: 'none',
               boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
             }}
@@ -154,22 +162,35 @@ export default function JamKerjaPage() {
     toleransiKeterlambatan: 15,
     toleransiPulang: 120,
     durasiKerjaMenit: 495,
+    isJumatKhusus: true,
+    jamMasukJumat: '07:30',
+    jamPulangJumat: '15:30',
+    durasiKerjaJumatMenit: 480,
   });
+  const [timelineTab, setTimelineTab] = useState<'reguler' | 'jumat'>('reguler');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
   const fetchJamKerja = async () => {
-    const res = await fetch('/api/jam-kerja');
-    const result = await res.json();
-    if (result.jamKerja) {
-      setData({
-        jamMasuk: result.jamKerja.jamMasuk,
-        jamPulang: result.jamKerja.jamPulang,
-        toleransiSebelumMasuk: result.jamKerja.toleransiSebelumMasuk ?? 30,
-        toleransiKeterlambatan: result.jamKerja.toleransiKeterlambatan ?? 15,
-        toleransiPulang: result.jamKerja.toleransiPulang ?? 120,
-        durasiKerjaMenit: result.jamKerja.durasiKerjaMenit ?? 495,
-      });
+    try {
+      const res = await fetch('/api/jam-kerja');
+      const result = await res.json();
+      if (result.jamKerja) {
+        setData({
+          jamMasuk: result.jamKerja.jamMasuk || '07:30',
+          jamPulang: result.jamKerja.jamPulang || '15:45',
+          toleransiSebelumMasuk: result.jamKerja.toleransiSebelumMasuk ?? 30,
+          toleransiKeterlambatan: result.jamKerja.toleransiKeterlambatan ?? 15,
+          toleransiPulang: result.jamKerja.toleransiPulang ?? 120,
+          durasiKerjaMenit: result.jamKerja.durasiKerjaMenit ?? 495,
+          isJumatKhusus: result.jamKerja.isJumatKhusus ?? true,
+          jamMasukJumat: result.jamKerja.jamMasukJumat || '07:30',
+          jamPulangJumat: result.jamKerja.jamPulangJumat || '15:30',
+          durasiKerjaJumatMenit: result.jamKerja.durasiKerjaJumatMenit ?? 480,
+        });
+      }
+    } catch (err) {
+      console.error('Gagal memuat jam kerja:', err);
     }
   };
 
@@ -177,7 +198,7 @@ export default function JamKerjaPage() {
     fetchJamKerja();
   }, []);
 
-  // Auto-compute durasi from jamMasuk & jamPulang
+  // Auto-compute durasi reguler dari jamMasuk & jamPulang
   useEffect(() => {
     const [mH, mM] = data.jamMasuk.split(':').map(Number);
     const [pH, pM] = data.jamPulang.split(':').map(Number);
@@ -188,6 +209,18 @@ export default function JamKerjaPage() {
       }
     }
   }, [data.jamMasuk, data.jamPulang]);
+
+  // Auto-compute durasi Jumat dari jamMasukJumat & jamPulangJumat
+  useEffect(() => {
+    const [mH, mM] = data.jamMasukJumat.split(':').map(Number);
+    const [pH, pM] = data.jamPulangJumat.split(':').map(Number);
+    if (!isNaN(mH) && !isNaN(mM) && !isNaN(pH) && !isNaN(pM)) {
+      const durasi = (pH * 60 + pM) - (mH * 60 + mM);
+      if (durasi > 0) {
+        setData((prev) => ({ ...prev, durasiKerjaJumatMenit: durasi }));
+      }
+    }
+  }, [data.jamMasukJumat, data.jamPulangJumat]);
 
   const handleSave = async () => {
     setLoading(true);
@@ -200,18 +233,18 @@ export default function JamKerjaPage() {
       });
       const result = await res.json();
       if (result.success) {
-        setMessage('✅ Setting jam kerja berhasil disimpan!');
+        setMessage('✅ Setting jam kerja & jadwal Jumat berhasil disimpan!');
       } else {
         setMessage('❌ Gagal menyimpan: ' + (result.error || ''));
       }
     } catch {
-      setMessage('❌ Terjadi kesalahan');
+      setMessage('❌ Terjadi kesalahan saat menyimpan pengaturan');
     }
     setLoading(false);
     setTimeout(() => setMessage(''), 4000);
   };
 
-  // Helper: compute display times
+  // Helper: compute display times Reguler
   const computeBukaAbsen = () => {
     const [h, m] = data.jamMasuk.split(':').map(Number);
     const totalMin = h * 60 + m - data.toleransiSebelumMasuk;
@@ -236,6 +269,31 @@ export default function JamKerjaPage() {
     return `${String(bH).padStart(2, '0')}:${String(bM).padStart(2, '0')}`;
   };
 
+  // Helper: compute display times Jumat
+  const computeBukaAbsenJumat = () => {
+    const [h, m] = data.jamMasukJumat.split(':').map(Number);
+    const totalMin = h * 60 + m - data.toleransiSebelumMasuk;
+    const bH = Math.floor(totalMin / 60);
+    const bM = totalMin % 60;
+    return `${String(bH).padStart(2, '0')}:${String(bM).padStart(2, '0')}`;
+  };
+
+  const computeBatasToleransiJumat = () => {
+    const [h, m] = data.jamMasukJumat.split(':').map(Number);
+    const totalMin = h * 60 + m + data.toleransiKeterlambatan;
+    const bH = Math.floor(totalMin / 60);
+    const bM = totalMin % 60;
+    return `${String(bH).padStart(2, '0')}:${String(bM).padStart(2, '0')}`;
+  };
+
+  const computeBatasPulangJumat = () => {
+    const [h, m] = data.jamPulangJumat.split(':').map(Number);
+    const totalMin = h * 60 + m + data.toleransiPulang;
+    const bH = Math.floor(totalMin / 60);
+    const bM = totalMin % 60;
+    return `${String(bH).padStart(2, '0')}:${String(bM).padStart(2, '0')}`;
+  };
+
   const formatDurasi = (menit: number) => {
     const jam = Math.floor(menit / 60);
     const min = menit % 60;
@@ -249,30 +307,35 @@ export default function JamKerjaPage() {
           Setting Jam Kerja & Toleransi
         </h2>
         <p style={{ color: '#64748b', fontSize: '14px' }}>
-          Atur jam kerja standar, toleransi keterlambatan, dan batas buka/tutup presensi pamong.
+          Atur jam kerja reguler (Senin–Kamis), jam kerja khusus hari Jumat, toleransi keterlambatan, dan batas buka/tutup presensi.
         </p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '20px' }}>
-        {/* Kolom 1: Jam Kerja Standar */}
-        <div className="glass-card-static" style={{ padding: '28px' }}>
-          <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            🕐 Jam Kerja Standar
-          </h3>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
+        {/* Kolom 1: Jam Kerja Reguler (Senin - Kamis) */}
+        <div className="glass-card-static" style={{ padding: '24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
+            <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+              <span>🕐</span> Jam Kerja Reguler
+            </h3>
+            <span style={{ fontSize: '11px', fontWeight: '700', color: '#2563eb', background: '#eff6ff', padding: '3px 8px', borderRadius: '6px' }}>
+              Senin – Kamis
+            </span>
+          </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
             <TimePicker24
               label="Jam Masuk Standar"
               value={data.jamMasuk}
               onChange={(val) => setData({ ...data, jamMasuk: val })}
-              helperText={`Pukul ${data.jamMasuk} WIB (Buka presensi: ${computeBukaAbsen()} WIB)`}
+              helperText={`Pukul ${data.jamMasuk} WIB (Buka: ${computeBukaAbsen()} WIB)`}
             />
 
             <TimePicker24
               label="Jam Pulang Standar"
               value={data.jamPulang}
               onChange={(val) => setData({ ...data, jamPulang: val })}
-              helperText={`Pukul ${data.jamPulang} WIB (Tutup presensi: ${computeBatasPulang()} WIB)`}
+              helperText={`Pukul ${data.jamPulang} WIB (Tutup: ${computeBatasPulang()} WIB)`}
             />
 
             <div style={{
@@ -282,22 +345,67 @@ export default function JamKerjaPage() {
               border: '1px solid #bfdbfe',
             }}>
               <p style={{ color: '#1d4ed8', fontSize: '12px', fontWeight: '700', marginBottom: '4px' }}>
-                ℹ️ Durasi Kerja Standar
+                ℹ️ Durasi Kerja Reguler
               </p>
-              <p style={{ color: '#0f172a', fontSize: '20px', fontWeight: '800' }}>
+              <p style={{ color: '#0f172a', fontSize: '19px', fontWeight: '800' }}>
                 {formatDurasi(data.durasiKerjaMenit)}
               </p>
               <p style={{ color: '#64748b', fontSize: '11px', marginTop: '4px' }}>
-                = {data.durasiKerjaMenit} menit (100% per hari)
+                = {data.durasiKerjaMenit} menit (100% kehadiran penuh harian)
               </p>
             </div>
           </div>
         </div>
 
-        {/* Kolom 2: Toleransi Presensi */}
-        <div className="glass-card-static" style={{ padding: '28px' }}>
-          <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            ⚙️ Toleransi Presensi
+        {/* Kolom 2: Jam Kerja Khusus Jumat */}
+        <div className="glass-card-static" style={{ padding: '24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
+            <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+              <span>🕌</span> Jam Kerja Khusus
+            </h3>
+            <span style={{ fontSize: '11px', fontWeight: '700', color: '#059669', background: '#ecfdf5', padding: '3px 8px', borderRadius: '6px' }}>
+              Hari Jumat
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+            <TimePicker24
+              label="Jam Masuk Hari Jumat"
+              value={data.jamMasukJumat}
+              onChange={(val) => setData({ ...data, jamMasukJumat: val })}
+              helperText={`Pukul ${data.jamMasukJumat} WIB (Buka: ${computeBukaAbsenJumat()} WIB)`}
+            />
+
+            <TimePicker24
+              label="Jam Pulang Hari Jumat"
+              value={data.jamPulangJumat}
+              onChange={(val) => setData({ ...data, jamPulangJumat: val })}
+              helperText={`Pukul ${data.jamPulangJumat} WIB (Tutup: ${computeBatasPulangJumat()} WIB)`}
+            />
+
+            <div style={{
+              padding: '14px',
+              borderRadius: '12px',
+              background: '#f0fdf4',
+              border: '1px solid #bbf7d0',
+            }}>
+              <p style={{ color: '#15803d', fontSize: '12px', fontWeight: '700', marginBottom: '4px' }}>
+                ℹ️ Durasi Kerja Jumat
+              </p>
+              <p style={{ color: '#0f172a', fontSize: '19px', fontWeight: '800' }}>
+                {formatDurasi(data.durasiKerjaJumatMenit)}
+              </p>
+              <p style={{ color: '#64748b', fontSize: '11px', marginTop: '4px' }}>
+                = {data.durasiKerjaJumatMenit} menit (100% penuh di hari Jumat, tidak ada potongan)
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Kolom 3: Toleransi Presensi */}
+        <div className="glass-card-static" style={{ padding: '24px' }}>
+          <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', marginBottom: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span>⚙️</span> Toleransi Presensi
           </h3>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -313,7 +421,7 @@ export default function JamKerjaPage() {
                 style={{ background: '#ffffff', color: '#0f172a' }}
               />
               <p style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
-                Absen masuk dibuka mulai pukul <b>{computeBukaAbsen()}</b> WIB
+                Absen masuk dibuka mulai <b>{computeBukaAbsen()}</b> WIB (Reguler) / <b>{computeBukaAbsenJumat()}</b> WIB (Jumat)
               </p>
             </div>
 
@@ -329,7 +437,7 @@ export default function JamKerjaPage() {
                 style={{ background: '#ffffff', color: '#0f172a' }}
               />
               <p style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
-                Masuk s.d. <b>{computeBatasToleransi()}</b> = &quot;Telat dalam toleransi&quot; (bukan pelanggaran, tapi jam pulang mundur)
+                Masuk s.d. <b>{computeBatasToleransi()}</b> (Reguler) / <b>{computeBatasToleransiJumat()}</b> (Jumat) = &quot;Telat dlm toleransi&quot; (jam pulang mundur)
               </p>
             </div>
 
@@ -345,26 +453,79 @@ export default function JamKerjaPage() {
                 style={{ background: '#ffffff', color: '#0f172a' }}
               />
               <p style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
-                Absen pulang ditutup paling lambat pukul <b>{computeBatasPulang()}</b> WIB (dari jam pulang standar)
+                Ditutup pukul <b>{computeBatasPulang()}</b> (Reguler) / <b>{computeBatasPulangJumat()}</b> (Jumat)
               </p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Timeline Alur Jam Kerja */}
+      {/* Timeline Alur Jam Kerja dengan Tab Reguler vs Jumat */}
       <div className="glass-card-static" style={{ padding: '24px', marginTop: '20px' }}>
-        <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          📋 Alur Waktu Presensi Harian
-        </h3>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+          <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span>📋</span> Alur Waktu Presensi Harian
+          </h3>
+
+          {/* Tab selector */}
+          <div style={{ display: 'flex', gap: '6px', background: '#f1f5f9', padding: '4px', borderRadius: '10px' }}>
+            <button
+              type="button"
+              onClick={() => setTimelineTab('reguler')}
+              style={{
+                padding: '6px 14px',
+                borderRadius: '8px',
+                border: 'none',
+                background: timelineTab === 'reguler' ? '#ffffff' : 'transparent',
+                color: timelineTab === 'reguler' ? '#2563eb' : '#64748b',
+                fontSize: '12.5px',
+                fontWeight: timelineTab === 'reguler' ? '700' : '500',
+                cursor: 'pointer',
+                boxShadow: timelineTab === 'reguler' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              Senin – Kamis (Reguler)
+            </button>
+            <button
+              type="button"
+              onClick={() => setTimelineTab('jumat')}
+              style={{
+                padding: '6px 14px',
+                borderRadius: '8px',
+                border: 'none',
+                background: timelineTab === 'jumat' ? '#ffffff' : 'transparent',
+                color: timelineTab === 'jumat' ? '#059669' : '#64748b',
+                fontSize: '12.5px',
+                fontWeight: timelineTab === 'jumat' ? '700' : '500',
+                cursor: 'pointer',
+                boxShadow: timelineTab === 'jumat' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              Jumat (Khusus)
+            </button>
+          </div>
+        </div>
+
+        {/* Timeline Items */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
-          {[
-            { time: computeBukaAbsen(), label: 'Buka Absen Masuk', color: '#2563eb', bg: '#eff6ff' },
-            { time: data.jamMasuk, label: 'Jam Masuk Standar', color: '#059669', bg: '#ecfdf5' },
-            { time: computeBatasToleransi(), label: 'Batas Toleransi', color: '#d97706', bg: '#fffbeb' },
-            { time: data.jamPulang, label: 'Jam Pulang Standar', color: '#7c3aed', bg: '#f5f3ff' },
-            { time: computeBatasPulang(), label: 'Tutup Absen Pulang', color: '#dc2626', bg: '#fef2f2' },
-          ].map((item, i) => (
+          {(timelineTab === 'reguler'
+            ? [
+                { time: computeBukaAbsen(), label: 'Buka Absen Masuk', color: '#2563eb', bg: '#eff6ff' },
+                { time: data.jamMasuk, label: 'Jam Masuk Standar', color: '#059669', bg: '#ecfdf5' },
+                { time: computeBatasToleransi(), label: 'Batas Toleransi', color: '#d97706', bg: '#fffbeb' },
+                { time: data.jamPulang, label: 'Jam Pulang Standar', color: '#7c3aed', bg: '#f5f3ff' },
+                { time: computeBatasPulang(), label: 'Tutup Absen Pulang', color: '#dc2626', bg: '#fef2f2' },
+              ]
+            : [
+                { time: computeBukaAbsenJumat(), label: 'Buka Absen Masuk', color: '#2563eb', bg: '#eff6ff' },
+                { time: data.jamMasukJumat, label: 'Jam Masuk Jumat', color: '#059669', bg: '#ecfdf5' },
+                { time: computeBatasToleransiJumat(), label: 'Batas Toleransi', color: '#d97706', bg: '#fffbeb' },
+                { time: data.jamPulangJumat, label: 'Jam Pulang Jumat', color: '#7c3aed', bg: '#f5f3ff' },
+                { time: computeBatasPulangJumat(), label: 'Tutup Absen Pulang', color: '#dc2626', bg: '#fef2f2' },
+              ]
+          ).map((item, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               {i > 0 && <span style={{ color: '#cbd5e1', fontSize: '16px' }}>→</span>}
               <div style={{
@@ -382,12 +543,11 @@ export default function JamKerjaPage() {
         </div>
 
         <div style={{ marginTop: '16px', padding: '14px', borderRadius: '10px', background: '#fefce8', border: '1px solid #fde68a' }}>
-          <p style={{ fontSize: '12px', color: '#92400e', lineHeight: '1.6' }}>
-            <b>💡 Catatan Penting:</b><br />
-            • Jika terlambat masuk <b>M</b> menit (baik dalam toleransi maupun di luar), jam pulang target <b>mundur M menit</b> agar total durasi kerja tetap {formatDurasi(data.durasiKerjaMenit)}.<br />
-            • Keterlambatan <b>di luar toleransi</b> dicatat sebagai pelanggaran dan dihitung potongan: <code>(M ÷ {data.durasiKerjaMenit}) × 100%</code>.<br />
-            • Pulang sebelum target jam pulang = <b>Pulang Cepat</b>, dihitung potongan mendahului.<br />
-            • Sabtu &amp; Minggu serta tanggal yang tercatat di Kalender Hari Libur <b>tidak direkam</b>.
+          <p style={{ fontSize: '12px', color: '#92400e', lineHeight: '1.6', margin: 0 }}>
+            <b>💡 Catatan Perumusan Logika:</b><br />
+            • <b>Target Harian Jumat 100%:</b> Di hari Jumat, target durasi kerja disesuaikan menjadi <b>{formatDurasi(data.isJumatKhusus ? data.durasiKerjaJumatMenit : data.durasiKerjaMenit)}</b> sehingga pamong tetap mendapat capaian 100% penuh tanpa potongan.<br />
+            • <b>Akumulasi Rekap Bulanan:</b> Total target jam kerja wajib bulanan dihitung dinamis: <code>(Jumlah Hari Senin–Kamis × {data.durasiKerjaMenit}m) + (Jumlah Hari Jumat × {data.isJumatKhusus ? data.durasiKerjaJumatMenit : data.durasiKerjaMenit}m)</code>.<br />
+            • <b>Penggeseran Target Pulang:</b> Jika terlambat masuk <i>M</i> menit, target jam pulang digeser mundur <i>M</i> menit agar durasi kerja harian tetap terpenuhi.
           </p>
         </div>
       </div>

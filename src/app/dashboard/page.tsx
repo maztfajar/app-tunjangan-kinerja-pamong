@@ -5,6 +5,7 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import MonitoringKedisiplinanModal from '@/components/presensi/MonitoringKedisiplinanModal';
 import { startFastGps } from '@/lib/geolocation';
+import { getEffectiveJamKerja } from '@/lib/jam-kerja-helper';
 import {
   IconCalendar,
   IconMapPin,
@@ -75,6 +76,10 @@ interface JamKerja {
   toleransiKeterlambatan?: number;
   toleransiPulang?: number;
   durasiKerjaMenit?: number;
+  isJumatKhusus?: boolean;
+  jamMasukJumat?: string;
+  jamPulangJumat?: string;
+  durasiKerjaJumatMenit?: number;
 }
 
 interface HariLiburItem {
@@ -240,7 +245,7 @@ export default function UserDashboard() {
     };
   }, [currentTime, hariLiburList]);
 
-  // Perhitungan status jadwal buka & tutup absensi
+  // Perhitungan status jadwal buka & tutup absensi (mendukung jadwal khusus Jumat)
   const jadwalStatus = useMemo(() => {
     if (!currentTime || !jamKerja?.jamMasuk || !jamKerja?.jamPulang) {
       return {
@@ -248,18 +253,20 @@ export default function UserDashboard() {
         isSudahTutup: false,
         batasBukaStr: '',
         batasTutupStr: '',
+        effective: null,
       };
     }
 
-    const [mH, mM] = jamKerja.jamMasuk.split(':').map(Number);
-    const [pH, pM] = jamKerja.jamPulang.split(':').map(Number);
+    const effective = getEffectiveJamKerja(jamKerja, currentTime);
+    const [mH, mM] = effective.jamMasuk.split(':').map(Number);
+    const [pH, pM] = effective.jamPulang.split(':').map(Number);
 
     const now = currentTime;
     const jamMasukDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), mH || 0, mM || 0, 0);
     const jamPulangStandar = new Date(now.getFullYear(), now.getMonth(), now.getDate(), pH || 0, pM || 0, 0);
 
-    const toleransiBuka = jamKerja.toleransiSebelumMasuk ?? 30;
-    const toleransiTutup = jamKerja.toleransiPulang ?? 120;
+    const toleransiBuka = effective.toleransiSebelumMasuk ?? 30;
+    const toleransiTutup = effective.toleransiPulang ?? 120;
 
     const batasBukaAbsen = new Date(jamMasukDate.getTime() - toleransiBuka * 60000);
     const batasTutupAbsensi = new Date(jamPulangStandar.getTime() + toleransiTutup * 60000);
@@ -275,6 +282,7 @@ export default function UserDashboard() {
       isSudahTutup,
       batasBukaStr: formatTime(batasBukaAbsen),
       batasTutupStr: formatTime(batasTutupAbsensi),
+      effective,
     };
   }, [currentTime, jamKerja]);
 
@@ -588,7 +596,8 @@ export default function UserDashboard() {
       const now = Date.now();
       if (now < targetTime) {
         const diffMenit = Math.ceil((targetTime - now) / 60000);
-        const persen = parseFloat(((diffMenit / (jamKerja.durasiKerjaMenit || 495)) * 100).toFixed(2));
+        const effective = getEffectiveJamKerja(jamKerja, new Date());
+        const persen = parseFloat(((diffMenit / (effective.durasiKerjaMenit || 495)) * 100).toFixed(2));
         const targetStr = new Date(presensiHariIni.targetJamPulang).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB';
         setConfirmPulangAwal({
           show: true,
@@ -858,7 +867,7 @@ export default function UserDashboard() {
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '4px' }}>
               <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Status Hari Ini ({jamKerja.jamMasuk} - {jamKerja.jamPulang} WIB)
+                Status Hari Ini ({jadwalStatus.effective?.jamMasuk || jamKerja.jamMasuk} - {jadwalStatus.effective?.jamPulang || jamKerja.jamPulang} WIB)
               </span>
               {presensiHariIni?.statusMasuk && (
                 <span
@@ -884,7 +893,7 @@ export default function UserDashboard() {
               <div suppressHydrationWarning style={{ background: '#ffffff', padding: '8px 4px', borderRadius: '8px', border: '1px solid #edf2f7' }}>
                 <span suppressHydrationWarning style={{ fontSize: '10px', color: '#64748b', display: 'block', marginBottom: '2px' }}>Target Pulang:</span>
                 <div suppressHydrationWarning style={{ fontSize: 'clamp(13px, 3.6vw, 16px)', fontWeight: '800', color: '#7c3aed', whiteSpace: 'nowrap' }}>
-                  {presensiHariIni?.targetJamPulang ? formatJam(presensiHariIni.targetJamPulang) : jamKerja.jamPulang}{' '}
+                  {presensiHariIni?.targetJamPulang ? formatJam(presensiHariIni.targetJamPulang) : (jadwalStatus.effective?.jamPulang || jamKerja.jamPulang)}{' '}
                   <span suppressHydrationWarning style={{ fontSize: '9px', color: '#94a3b8', fontWeight: '600' }}>WIB</span>
                 </div>
               </div>

@@ -29,6 +29,10 @@ export async function POST(request: Request) {
       toleransiKeterlambatan,
       toleransiPulang,
       durasiKerjaMenit,
+      isJumatKhusus,
+      jamMasukJumat,
+      jamPulangJumat,
+      durasiKerjaJumatMenit,
     } = await request.json();
 
     const existing = await prisma.jamKerja.findFirst();
@@ -40,6 +44,12 @@ export async function POST(request: Request) {
     if (toleransiKeterlambatan !== undefined) data.toleransiKeterlambatan = Number(toleransiKeterlambatan);
     if (toleransiPulang !== undefined) data.toleransiPulang = Number(toleransiPulang);
     if (durasiKerjaMenit !== undefined) data.durasiKerjaMenit = Number(durasiKerjaMenit);
+
+    // Pengaturan Khusus Hari Jumat
+    if (isJumatKhusus !== undefined) data.isJumatKhusus = Boolean(isJumatKhusus);
+    if (jamMasukJumat !== undefined) data.jamMasukJumat = jamMasukJumat;
+    if (jamPulangJumat !== undefined) data.jamPulangJumat = jamPulangJumat;
+    if (durasiKerjaJumatMenit !== undefined) data.durasiKerjaJumatMenit = Number(durasiKerjaJumatMenit);
 
     let jamKerja;
     if (existing) {
@@ -56,6 +66,10 @@ export async function POST(request: Request) {
           toleransiKeterlambatan: number;
           toleransiPulang: number;
           durasiKerjaMenit: number;
+          isJumatKhusus: boolean;
+          jamMasukJumat: string;
+          jamPulangJumat: string;
+          durasiKerjaJumatMenit: number;
         },
       });
     }

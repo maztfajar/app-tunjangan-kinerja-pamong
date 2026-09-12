@@ -50,10 +50,20 @@ CREATE TABLE IF NOT EXISTS "JamKerja" (
     "toleransiKeterlambatan" INTEGER NOT NULL DEFAULT 15,
     "toleransiPulang" INTEGER NOT NULL DEFAULT 120,
     "durasiKerjaMenit" INTEGER NOT NULL DEFAULT 495,
+    "isJumatKhusus" BOOLEAN NOT NULL DEFAULT true,
+    "jamMasukJumat" TEXT NOT NULL DEFAULT '07:30',
+    "jamPulangJumat" TEXT NOT NULL DEFAULT '15:30',
+    "durasiKerjaJumatMenit" INTEGER NOT NULL DEFAULT 480,
     "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "JamKerja_pkey" PRIMARY KEY ("id")
 );
+
+-- Migrasi aman untuk database yang sudah ada (cPanel / PostgreSQL)
+ALTER TABLE "JamKerja" ADD COLUMN IF NOT EXISTS "isJumatKhusus" BOOLEAN DEFAULT true;
+ALTER TABLE "JamKerja" ADD COLUMN IF NOT EXISTS "jamMasukJumat" TEXT DEFAULT '07:30';
+ALTER TABLE "JamKerja" ADD COLUMN IF NOT EXISTS "jamPulangJumat" TEXT DEFAULT '15:30';
+ALTER TABLE "JamKerja" ADD COLUMN IF NOT EXISTS "durasiKerjaJumatMenit" INTEGER DEFAULT 480;
 
 -- 6. CreateTable Presensi
 CREATE TABLE IF NOT EXISTS "Presensi" (

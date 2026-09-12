@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
 import { hitungJarakMeter } from '@/lib/geolocation';
+import { getEffectiveJamKerja } from '@/lib/jam-kerja-helper';
 
 // Helper: parse "HH:MM" string into { hour, minute }
 function parseTimeStr(t: string): { hour: number; minute: number } {
@@ -111,17 +112,7 @@ export async function POST(request: Request) {
       }
     }
 
-    // Ambil jam kerja & toleransi
-    const jamKerja = await prisma.jamKerja.findFirst();
-    const jamMasukStr = jamKerja?.jamMasuk || '07:30';
-    const jamPulangStr = jamKerja?.jamPulang || '15:45';
-    const toleransiSebelumMasuk = jamKerja?.toleransiSebelumMasuk ?? 30;
-    const toleransiKeterlambatan = jamKerja?.toleransiKeterlambatan ?? 15;
-    const toleransiPulang = jamKerja?.toleransiPulang ?? 120;
-    const durasiKerjaStandar = jamKerja?.durasiKerjaMenit ?? 495;
-
-    const masukParsed = parseTimeStr(jamMasukStr);
-    const pulangParsed = parseTimeStr(jamPulangStr);
+    const now = new Date();
 
     // Cek presensi hari ini
     const today = new Date();
@@ -129,14 +120,25 @@ export async function POST(request: Request) {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
+    // Ambil jam kerja & toleransi (otomatis membedakan reguler vs hari Jumat)
+    const jamKerjaRaw = await prisma.jamKerja.findFirst();
+    const effective = getEffectiveJamKerja(jamKerjaRaw, now);
+    const jamMasukStr = effective.jamMasuk;
+    const jamPulangStr = effective.jamPulang;
+    const toleransiSebelumMasuk = effective.toleransiSebelumMasuk;
+    const toleransiKeterlambatan = effective.toleransiKeterlambatan;
+    const toleransiPulang = effective.toleransiPulang;
+    const durasiKerjaStandar = effective.durasiKerjaMenit;
+
+    const masukParsed = parseTimeStr(jamMasukStr);
+    const pulangParsed = parseTimeStr(jamPulangStr);
+
     let presensiHariIni = await prisma.presensi.findFirst({
       where: {
         userId: session.userId,
         tanggal: { gte: today, lt: tomorrow },
       },
     });
-
-    const now = new Date();
 
     // ==================== ABSEN MASUK ====================
     if (tipe === 'masuk') {

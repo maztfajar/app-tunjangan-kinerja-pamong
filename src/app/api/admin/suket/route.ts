@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
 import { getLicenseInfo } from '@/lib/license';
+import { getEffectiveJamKerja } from '@/lib/jam-kerja-helper';
 
 // Helper: parse "HH:MM"
 function parseTimeStr(t: string): { hour: number; minute: number } {
@@ -101,15 +102,16 @@ export async function POST(request: Request) {
       parsedSuket = { alasan: presensi.suket };
     }
 
-    const jamKerja = await prisma.jamKerja.findFirst();
-    const jamMasukStr = jamKerja?.jamMasuk || '07:30';
-    const jamPulangStr = jamKerja?.jamPulang || '15:45';
-    const durasiStandar = jamKerja?.durasiKerjaMenit || 495;
+    const baseDate = new Date(presensi.tanggal);
+    const jamKerjaRaw = await prisma.jamKerja.findFirst();
+    const effective = getEffectiveJamKerja(jamKerjaRaw, baseDate);
+    const jamMasukStr = effective.jamMasuk;
+    const jamPulangStr = effective.jamPulang;
+    const durasiStandar = effective.durasiKerjaMenit;
 
     const masukParsed = parseTimeStr(jamMasukStr);
     const pulangParsed = parseTimeStr(jamPulangStr);
 
-    const baseDate = new Date(presensi.tanggal);
     const jamMasukStandar = timeOnDate(baseDate, masukParsed.hour, masukParsed.minute);
     const jamPulangStandar = timeOnDate(baseDate, pulangParsed.hour, pulangParsed.minute);
 

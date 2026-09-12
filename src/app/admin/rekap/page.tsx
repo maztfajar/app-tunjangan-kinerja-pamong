@@ -42,6 +42,10 @@ interface JamKerjaData {
   jamMasuk: string;
   jamPulang: string;
   durasiKerjaMenit: number;
+  isJumatKhusus?: boolean;
+  jamMasukJumat?: string;
+  jamPulangJumat?: string;
+  durasiKerjaJumatMenit?: number;
 }
 
 interface ParsedSuket {
@@ -175,6 +179,24 @@ export default function RekapAdminPage() {
     }).length;
   }, [pastAndCurrentDays, hariLibur]);
 
+  // Total Target Jam Kerja Wajib Real-time (s/d hari ini, membedakan reguler vs Jumat)
+  const totalExpectedMenitRealtime = useMemo(() => {
+    const isJumatKhusus = jamKerja?.isJumatKhusus ?? true;
+    const durasiReguler = jamKerja?.durasiKerjaMenit || 495;
+    const durasiJumat = jamKerja?.durasiKerjaJumatMenit || 480;
+
+    return pastAndCurrentDays.filter((d) => {
+      const override = getOverrideMasuk(d);
+      if (override) return true;
+      if (isWeekend(d)) return false;
+      if (getHariLibur(d)) return false;
+      return true;
+    }).reduce((sum, d) => {
+      const isFriday = d.getDay() === 5;
+      return sum + (isFriday && isJumatKhusus ? durasiJumat : durasiReguler);
+    }, 0);
+  }, [pastAndCurrentDays, hariLibur, jamKerja]);
+
   // Agregasi Data Kedisiplinan Per Pegawai
   const aggregatedPegawai = useMemo(() => {
     return pegawaiList.map((peg) => {
@@ -184,6 +206,7 @@ export default function RekapAdminPage() {
       // Filter hanya tanggal realtime (<= today) untuk keterlambatan & mendahului
       let totalTerlambat = 0;
       let totalMendahului = 0;
+      let totalDurasiKerjaAktual = 0;
       const attendedDates = new Set<string>();
       const pendingSukets: Array<{ presensi: PresensiItem; suket: ParsedSuket }> = [];
       const approvedSukets: Array<{ presensi: PresensiItem; suket: ParsedSuket }> = [];
@@ -209,6 +232,10 @@ export default function RekapAdminPage() {
           const dateKey = toDateKey(pDate);
           if (p.jamMasuk || parsed?.status === 'Disetujui') {
             attendedDates.add(dateKey);
+          }
+
+          if (p.durasiKerjaMenit) {
+            totalDurasiKerjaAktual += p.durasiKerjaMenit;
           }
 
           // Keterlambatan dan kepulangan mendahului dihitung jika belum disetujui suketnya
@@ -257,6 +284,7 @@ export default function RekapAdminPage() {
         totalTerlambat,
         totalMendahului,
         totalPelanggaranMenit,
+        totalDurasiKerjaAktual,
         pendingSukets,
         approvedSukets,
         kedisiplinan,
@@ -427,6 +455,20 @@ export default function RekapAdminPage() {
             {aggregatedPegawai.filter((p) => p.kedisiplinan.label === 'Sangat Disiplin').length}{' '}
             <span style={{ fontSize: '13px', fontWeight: '500', color: '#64748b' }}>pamong</span>
           </p>
+        </div>
+
+        {/* Target Jam Kerja Realtime */}
+        <div className="stat-card" style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderLeft: '4px solid #2563eb' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b' }}>
+            <IconClock size={16} color="#2563eb" />
+            <p style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase' }}>Target Beban Kerja</p>
+          </div>
+          <p style={{ fontSize: '24px', fontWeight: '800', color: '#2563eb', marginTop: '6px' }}>
+            {Math.floor(totalExpectedMenitRealtime / 60)}j {totalExpectedMenitRealtime % 60}m
+          </p>
+          <span style={{ fontSize: '11px', color: '#64748b' }}>
+            Wajib s/d hari ini {jamKerja?.isJumatKhusus ? '(Jumat disesuaikan)' : ''}
+          </span>
         </div>
       </div>
 
@@ -935,6 +977,7 @@ export default function RekapAdminPage() {
                     <th>Terlambat</th>
                     <th>Jam Pulang</th>
                     <th>Mendahului</th>
+                    <th>Durasi Kerja</th>
                     <th>Status / Keterangan</th>
                     <th>Suket</th>
                   </tr>
@@ -982,6 +1025,9 @@ export default function RekapAdminPage() {
                         </td>
                         <td style={{ color: p?.mendahului ? '#dc2626' : '#94a3b8' }}>
                           {isOffDay || isFuture ? '-' : (p?.mendahului ? `${p.mendahului} mnt` : '-')}
+                        </td>
+                        <td style={{ fontSize: '12px', fontWeight: '600', color: p?.durasiKerjaMenit ? '#0f172a' : '#94a3b8' }}>
+                          {isOffDay || isFuture ? '-' : (p?.durasiKerjaMenit ? `${Math.floor(p.durasiKerjaMenit / 60)}j ${p.durasiKerjaMenit % 60}m (${p.persentaseHarian || 0}%)` : '-')}
                         </td>
                         <td style={{ fontSize: '12.5px' }}>
                           {isOffDay ? (libur ? libur.keterangan : 'Libur') : isFuture ? '-' : (p?.keterangan || 'e-presensi')}

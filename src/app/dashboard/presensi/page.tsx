@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { startFastGps } from '@/lib/geolocation';
+import { getEffectiveJamKerja } from '@/lib/jam-kerja-helper';
 
 const MapPicker = dynamic(() => import('@/components/presensi/MapPicker'), {
   ssr: false,
@@ -35,6 +36,10 @@ interface JamKerjaData {
   toleransiKeterlambatan: number;
   toleransiPulang: number;
   durasiKerjaMenit: number;
+  isJumatKhusus?: boolean;
+  jamMasukJumat?: string;
+  jamPulangJumat?: string;
+  durasiKerjaJumatMenit?: number;
 }
 
 interface PresensiData {
@@ -87,7 +92,7 @@ export default function PresensiPage() {
     return () => clearInterval(timer);
   }, []);
 
-  // Perhitungan status jadwal buka & tutup absensi
+  // Perhitungan status jadwal buka & tutup absensi (mendukung jadwal khusus Jumat)
   const jadwalStatus = useMemo(() => {
     if (!jamKerja?.jamMasuk || !jamKerja?.jamPulang) {
       return {
@@ -97,18 +102,20 @@ export default function PresensiPage() {
         batasTutupStr: '',
         jamMasukStr: '',
         jamPulangStr: '',
+        effective: null,
       };
     }
 
-    const [mH, mM] = jamKerja.jamMasuk.split(':').map(Number);
-    const [pH, pM] = jamKerja.jamPulang.split(':').map(Number);
-
     const now = currentTime;
+    const effective = getEffectiveJamKerja(jamKerja, now);
+    const [mH, mM] = effective.jamMasuk.split(':').map(Number);
+    const [pH, pM] = effective.jamPulang.split(':').map(Number);
+
     const jamMasukDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), mH || 0, mM || 0, 0);
     const jamPulangStandar = new Date(now.getFullYear(), now.getMonth(), now.getDate(), pH || 0, pM || 0, 0);
 
-    const toleransiBuka = jamKerja.toleransiSebelumMasuk ?? 30;
-    const toleransiTutup = jamKerja.toleransiPulang ?? 120;
+    const toleransiBuka = effective.toleransiSebelumMasuk ?? 30;
+    const toleransiTutup = effective.toleransiPulang ?? 120;
 
     const batasBukaAbsen = new Date(jamMasukDate.getTime() - toleransiBuka * 60000);
     const batasTutupAbsensi = new Date(jamPulangStandar.getTime() + toleransiTutup * 60000);
@@ -128,6 +135,7 @@ export default function PresensiPage() {
       batasTutupStr: formatTime(batasTutupAbsensi),
       jamMasukStr: `${pad(mH)}:${pad(mM)} WIB`,
       jamPulangStr: `${pad(pH)}:${pad(pM)} WIB`,
+      effective,
     };
   }, [jamKerja, currentTime]);
 
@@ -348,7 +356,8 @@ export default function PresensiPage() {
       const now = Date.now();
       if (now < targetTime) {
         const diffMenit = Math.ceil((targetTime - now) / 60000);
-        const persen = parseFloat(((diffMenit / (jamKerja.durasiKerjaMenit || 495)) * 100).toFixed(2));
+        const effective = getEffectiveJamKerja(jamKerja, new Date());
+        const persen = parseFloat(((diffMenit / (effective.durasiKerjaMenit || 495)) * 100).toFixed(2));
         const targetStr = new Date(presensiHariIni.targetJamPulang).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB';
         setConfirmPulangAwal({
           show: true,
@@ -484,7 +493,7 @@ export default function PresensiPage() {
                 <div style={{ fontSize: '15px', fontWeight: '800', color: '#7c3aed' }}>
                   {presensiHariIni?.targetJamPulang
                     ? new Date(presensiHariIni.targetJamPulang).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB'
-                    : jamKerja.jamPulang + ' WIB'}
+                    : (jadwalStatus.jamPulangStr || jamKerja.jamPulang + ' WIB')}
                 </div>
               </div>
               <div>
@@ -508,7 +517,7 @@ export default function PresensiPage() {
                   marginTop: '8px',
                 }}
               >
-                ℹ️ Jam pulang digeser mundur <b>{presensiHariIni.keterlambatan} menit</b> agar beban kerja Anda tetap terpenuhi <b>{jamKerja.durasiKerjaMenit} menit</b> (100%).
+                ℹ️ Jam pulang digeser mundur <b>{presensiHariIni.keterlambatan} menit</b> agar beban kerja Anda tetap terpenuhi <b>{jadwalStatus.effective?.durasiKerjaMenit || jamKerja.durasiKerjaMenit} menit</b> (100%).
               </div>
             )}
 
