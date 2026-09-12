@@ -1,5 +1,7 @@
 import React from 'react';
 import type { Metadata } from 'next';
+import { redirect } from 'next/navigation';
+import { getLicenseInfo } from '@/lib/license';
 import BiometricManager from '@/components/biometrics/BiometricManager';
 
 export const metadata: Metadata = {
@@ -7,7 +9,12 @@ export const metadata: Metadata = {
   description: 'Pendaftaran dan Pengelolaan Kunci Biometrik (Face ID & Sidik Jari) Pamong Kalurahan',
 };
 
-export default function DashboardBiometrikPage() {
+export default async function DashboardBiometrikPage() {
+  const license = await getLicenseInfo();
+  if (!license.isPro || !license.features?.biometrics) {
+    redirect('/dashboard');
+  }
+
   return (
     <BiometricManager
       role="PAMONG"

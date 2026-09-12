@@ -31,34 +31,55 @@ function LoginForm() {
     }
   }, [urlError]);
 
-  // Sesuai instruksi: "biomatrick jika diakses di pc / lamptop tidak perlu"
+  // Helper konversi Base64URL ke Uint8Array yang aman untuk WebAuthn allowCredentials
+  const safeBase64UrlToUint8Array = (str: string): Uint8Array => {
+    try {
+      let base64 = str.replace(/-/g, '+').replace(/_/g, '/');
+      while (base64.length % 4 !== 0) {
+        base64 += '=';
+      }
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      return bytes;
+    } catch {
+      return new TextEncoder().encode(str);
+    }
+  };
+
   useEffect(() => {
+    // 1. Selalu ambil status lisensi dari server untuk mendeteksi apakah Web App berstatus Pro
+    const domainQuery = typeof window !== 'undefined' && window.location.hostname
+      ? `?domain=${encodeURIComponent(window.location.hostname)}`
+      : '';
+
+    fetch(`/api/license/status${domainQuery}`)
+      .then((r) => {
+        if (!r.ok) throw new Error('Status ' + r.status);
+        return r.json();
+      })
+      .then((lic) => {
+        // HANYA jika lisensi PRO dan fitur biometrik aktif
+        const isProWithBio = Boolean(lic?.isPro && lic?.features?.biometrics);
+        setBiometricFeatureActive(isProWithBio);
+      })
+      .catch((err) => {
+        console.warn('License status check notice:', err);
+        setBiometricFeatureActive(false);
+      });
+
+    // 2. Deteksi dukungan WebAuthn & perangkat
     if (typeof window !== 'undefined') {
+      const hasWebAuthn = Boolean(window.PublicKeyCredential);
+      setSupportsBiometric(hasWebAuthn);
+
       const mobileCheck =
         /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
         (window.innerWidth <= 1024 && (navigator.maxTouchPoints > 0 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent))) ||
         window.innerWidth <= 768;
       setIsMobile(mobileCheck);
-
-      if (mobileCheck && window.PublicKeyCredential) {
-        fetch('/api/license/status')
-          .then((r) => r.json())
-          .then((lic) => {
-            const hasBio = Boolean(lic?.features?.biometrics);
-            setBiometricFeatureActive(hasBio);
-            if (hasBio) {
-              window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
-                .then((available) => setSupportsBiometric(available))
-                .catch(() => setSupportsBiometric(false));
-            } else {
-              setSupportsBiometric(false);
-            }
-          })
-          .catch(() => {
-            setBiometricFeatureActive(false);
-            setSupportsBiometric(false);
-          });
-      }
     }
   }, []);
 
@@ -78,9 +99,18 @@ function LoginForm() {
       .catch(() => {});
   }, []);
 
-  // Alur Login Biometrik Smartphone (Wajah / Sidik Jari)
+  // Alur Login Biometrik Terverifikasi per Username
   const handleBiometricLogin = async () => {
     setError('');
+
+    const inputNip = ((document.getElementById('input-nip') as HTMLInputElement)?.value || nip).trim();
+
+    if (!inputNip) {
+      setError('Silakan masukkan Username Anda terlebih dahulu pada kolom Username di atas.');
+      document.getElementById('input-nip')?.focus();
+      return;
+    }
+
     setBiometricLoading(true);
 
     try {
@@ -91,56 +121,69 @@ function LoginForm() {
       }
 
       if (!window.PublicKeyCredential) {
-        setError('Perangkat ini tidak mendukung standar autentikasi biometrik.');
+        setError('Perangkat / browser ini tidak mendukung standar autentikasi biometrik (WebAuthn). Gunakan Google Chrome versi terbaru.');
         setBiometricLoading(false);
         return;
       }
 
-      // 1. Dapatkan challenge dari server
-      const challengeRes = await fetch('/api/auth/biometric/login');
+      // 1. Pencarian ke backend: apakah username ini sudah mendaftarkan biometrik?
+      const challengeRes = await fetch(`/api/auth/biometric/login?username=${encodeURIComponent(inputNip)}`);
       const challengeData = await challengeRes.json();
+
       if (!challengeRes.ok || !challengeData.options) {
-        setError(challengeData.error || 'Gagal memulai sesi biometrik');
+        if (challengeData.needsPassword) {
+          setError('Akun Anda belum mendaftarkan biometrik di perangkat ini. Silahkan mendaftar di menu Kunci Biometrik di dalam dashboard.');
+          document.getElementById('input-password')?.focus();
+        } else {
+          setError(challengeData.error || 'Gagal memeriksa status biometrik akun ini.');
+        }
         setBiometricLoading(false);
         return;
       }
 
-      const { challenge } = challengeData.options;
+      const { challenge, allowCredentials: rawAllowCreds } = challengeData.options;
 
       // Ubah base64url challenge menjadi Uint8Array
-      const challengeBytes = Uint8Array.from(atob(challenge.replace(/-/g, '+').replace(/_/g, '/')), (c) =>
-        c.charCodeAt(0)
-      );
+      const challengeBytes = safeBase64UrlToUint8Array(challenge);
 
       const cleanHost = window.location.hostname.trim().toLowerCase();
       const isIp = /^(\d{1,3}\.){3}\d{1,3}$/.test(cleanHost) || cleanHost.includes(':');
 
       const publicKeyReq: PublicKeyCredentialRequestOptions = {
-        challenge: challengeBytes,
+        challenge: challengeBytes as unknown as BufferSource,
         userVerification: 'required',
         timeout: 60000,
         ...(!isIp ? { rpId: cleanHost } : {}),
         ...({ hints: ['client-device'] } as Record<string, unknown>),
       };
 
-      // 2. Minta verifikasi biometrik asli dari OS ponsel (Wajah / Sidik Jari)
+      // Tautkan kunci biometrik khusus milik Username ini (Pemisahan Akun 100% Aman)
+      if (rawAllowCreds && Array.isArray(rawAllowCreds) && rawAllowCreds.length > 0) {
+        publicKeyReq.allowCredentials = rawAllowCreds.map((c: { id: string; type: string }) => ({
+          id: safeBase64UrlToUint8Array(c.id) as unknown as BufferSource,
+          type: (c.type || 'public-key') as PublicKeyCredentialType,
+        }));
+      }
+
+      // 2. Minta verifikasi biometrik asli dari OS ponsel / perangkat (Wajah / Sidik Jari)
       const credential = (await navigator.credentials.get({
         publicKey: publicKeyReq,
       })) as PublicKeyCredential | null;
 
       if (!credential) {
-        setError('Pemindaian biometrik dibatalkan.');
+        setError('Pemindaian biometrik dibatalkan. Silakan masukkan Password jika ingin masuk tanpa sensor.');
         setBiometricLoading(false);
         return;
       }
 
-      // 3. Kirim hasil pemindaian ke server
+      // 3. Kirim hasil pemindaian ke server dengan verifikasi ketat Username
       const verifyRes = await fetch('/api/auth/biometric/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           credentialId: credential.id,
           challenge,
+          expectedUsername: inputNip,
         }),
       });
 
@@ -157,9 +200,9 @@ function LoginForm() {
       const errorMsg = (err as Error)?.message || '';
       console.warn('Biometric login error:', err);
       if (errorMsg.includes('NotAllowedError') || errorMsg.includes('canceled')) {
-        setError('Face ID / Sidik Jari belum terdaftar di ponsel ini atau dibatalkan. Pilihan barcode di iPhone muncul karena iPhone belum memiliki data Face ID untuk akun Anda di website ini. Silakan masuk dulu dengan Username & Password, lalu daftarkan kunci di menu Kunci Biometrik.');
+        setError('Pemindaian biometrik dibatalkan atau waktu habis. Jika sensor bermasalah, Anda dapat masuk langsung menggunakan Password.');
       } else {
-        setError('Kunci biometrik belum terdaftar untuk akun ini pada perangkat ini. Silakan masuk menggunakan username & password terlebih dahulu.');
+        setError('Kunci biometrik belum cocok atau belum terdaftar pada perangkat ini. Silakan masuk menggunakan Password terlebih dahulu.');
       }
       setBiometricLoading(false);
     }
@@ -363,7 +406,8 @@ function LoginForm() {
           )}
 
           <form id="login-form" action="/api/auth/login" method="POST" onSubmit={handleSubmit} suppressHydrationWarning>
-            <div style={{ marginBottom: '18px' }}>
+            {/* 1. Input Username */}
+            <div style={{ marginBottom: biometricFeatureActive ? '14px' : '18px' }}>
               <label
                 style={{
                   display: 'block',
@@ -397,6 +441,67 @@ function LoginForm() {
               />
             </div>
 
+            {/* 2. Tombol Biometrik - Tepat di Bawah Input Username (Hanya Muncul Jika Web App Sudah PRO) */}
+            {biometricFeatureActive && (
+              <div style={{ marginBottom: '20px' }}>
+                <button
+                  type="button"
+                  onClick={handleBiometricLogin}
+                  disabled={biometricLoading || loading}
+                  suppressHydrationWarning
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    padding: '11px 16px',
+                    borderRadius: '8px',
+                    border: '1px solid #bfdbfe',
+                    background: '#eff6ff',
+                    color: '#1d4ed8',
+                    fontSize: '13.5px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    boxShadow: '0 2px 5px rgba(37, 99, 235, 0.08)',
+                  }}
+                >
+                  {biometricLoading ? (
+                    <>
+                      <div className="spinner" style={{ width: '16px', height: '16px', borderWidth: '2px' }} />
+                      <span>Memeriksa Kunci Biometrik...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span style={{ fontSize: '17px' }}>📱</span>
+                      <span>
+                        {nip.trim()
+                          ? `Masuk dengan Biometrik (${nip.trim()})`
+                          : 'Masuk dengan Biometrik (Sidik Jari / Wajah)'}
+                      </span>
+                    </>
+                  )}
+                </button>
+
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    marginTop: '16px',
+                  }}
+                >
+                  <div style={{ flex: 1, height: '1px', background: '#e2e8f0' }} />
+                  <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '700' }}>
+                    ATAU MASUK DENGAN PASSWORD
+                  </span>
+                  <div style={{ flex: 1, height: '1px', background: '#e2e8f0' }} />
+                </div>
+              </div>
+            )}
+
+            {/* 3. Input Password */}
             <div style={{ marginBottom: '20px' }}>
               <label
                 style={{
@@ -451,6 +556,7 @@ function LoginForm() {
               />
             </div>
 
+            {/* 4. Tombol Login Masuk ke Sistem */}
             <button
               type="submit"
               disabled={loading || !botToken}
@@ -488,84 +594,6 @@ function LoginForm() {
                 <span>Masuk ke Sistem</span>
               )}
             </button>
-
-            {/* Opsi Login Biometrik - Khusus Smartphone (Android / iOS) pada Mode Pro */}
-            {isMobile && biometricFeatureActive && (
-              <div style={{ marginTop: '20px' }}>
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px',
-                    margin: '18px 0 14px',
-                  }}
-                >
-                  <div style={{ flex: 1, height: '1px', background: '#e2e8f0' }} />
-                  <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '700' }}>ATAU</span>
-                  <div style={{ flex: 1, height: '1px', background: '#e2e8f0' }} />
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleBiometricLogin}
-                  disabled={biometricLoading || loading}
-                  suppressHydrationWarning
-                  style={{
-                    width: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px',
-                    padding: '12px',
-                    borderRadius: '8px',
-                    border: '1px solid #bfdbfe',
-                    background: '#eff6ff',
-                    color: '#1d4ed8',
-                    fontSize: '14px',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                  }}
-                >
-                  {biometricLoading ? (
-                    <>
-                      <div className="spinner" style={{ width: '16px', height: '16px', borderWidth: '2px' }} />
-                      <span>Menunggu Sensor Ponsel...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span style={{ fontSize: '16px' }}>📱</span>
-                      <span>Masuk dengan Biometrik (Wajah / Sidik Jari)</span>
-                    </>
-                  )}
-                </button>
-
-                {/* Panduan Jelas iPhone & Android */}
-                <div
-                  style={{
-                    marginTop: '10px',
-                    padding: '10px 12px',
-                    background: '#f0fdf4',
-                    border: '1px solid #bbf7d0',
-                    borderRadius: '8px',
-                    fontSize: '11px',
-                    color: '#166534',
-                    lineHeight: '1.45',
-                    textAlign: 'left',
-                  }}
-                >
-                  <div style={{ fontWeight: '700', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <span>📱</span>
-                    <span>Panduan Pengguna iPhone &amp; Android:</span>
-                  </div>
-                  <div>
-                    • <b>Penggunaan Pertama:</b> Masuk dulu menggunakan <b>Username &amp; Password</b>.<br />
-                    • <b>Setelah Masuk:</b> Aktifkan Face ID / Sidik Jari di menu akun / menu bawah.<br />
-                    • <em>Jika muncul barcode di iPhone, itu karena Face ID belum didaftarkan pada iPhone ini.</em>
-                  </div>
-                </div>
-              </div>
-            )}
           </form>
 
           {/* Info Status Biometrik & Admin Notice */}

@@ -1,9 +1,11 @@
-import { NextResponse } from 'next/server';
-import { getLicenseInfo } from '@/lib/license';
+import { NextRequest, NextResponse } from 'next/server';
+import { getLicenseInfo, extractDomainFromHeaders } from '@/lib/license';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const license = await getLicenseInfo();
+    const domainParam = req.nextUrl.searchParams.get('domain')?.trim();
+    const host = domainParam || extractDomainFromHeaders(req.headers) || undefined;
+    const license = await getLicenseInfo(host);
 
     return NextResponse.json({
       isPro: license.isPro,

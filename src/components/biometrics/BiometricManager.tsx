@@ -18,11 +18,19 @@ interface BiometricManagerProps {
   roleName: string;
 }
 
+interface DeviceItem {
+  id: string;
+  credentialId: string;
+  deviceLabel: string | null;
+  createdAt: string;
+}
+
 export default function BiometricManager({ role, backUrl, roleName }: BiometricManagerProps) {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [hasRegistered, setHasRegistered] = useState(false);
   const [credentialCount, setCredentialCount] = useState(0);
+  const [deviceList, setDeviceList] = useState<DeviceItem[]>([]);
   const [user, setUser] = useState<{ id: string; nip: string; nama: string; role: string } | null>(null);
   const [isPro, setIsPro] = useState<boolean | null>(null);
   const [biometricsEnabled, setBiometricsEnabled] = useState<boolean | null>(null);
@@ -52,12 +60,13 @@ export default function BiometricManager({ role, backUrl, roleName }: BiometricM
         setBiometricsEnabled(Boolean(licData.features?.biometrics));
       }
 
-      // 3. Cek Status Kredensial Terdaftar
+      // 3. Cek Status Kredensial Terdaftar dari Database
       const checkRes = await fetch('/api/auth/biometric/check');
       if (checkRes.ok) {
         const checkData = await checkRes.json();
         setHasRegistered(Boolean(checkData.registered ?? checkData.hasBiometric));
         setCredentialCount(Number(checkData.count || 0));
+        setDeviceList(Array.isArray(checkData.items) ? checkData.items : []);
       }
 
       // 4. Cek Lingkungan Browser & Sensor
@@ -165,7 +174,7 @@ export default function BiometricManager({ role, backUrl, roleName }: BiometricM
           authenticatorSelection: {
             authenticatorAttachment: 'platform', // Wajib sensor fisik bawaan HP/Laptop
             userVerification: 'required',        // Wajib verifikasi wajah atau sidik jari
-            residentKey: 'required',             // Wajib residentKey agar Apple Face ID mengenali passkey
+            residentKey: 'preferred',            // 'preferred' agar kompatibel penuh di semua merk HP & passkey
           },
           timeout: timeout || 60000,
           attestation: 'none',
@@ -280,9 +289,60 @@ export default function BiometricManager({ role, backUrl, roleName }: BiometricM
     }
   };
 
-  // Alur Hapus Kunci Biometrik
-  const handleRemove = async () => {
-    if (!confirm('Apakah Anda yakin ingin menghapus seluruh kunci biometrik yang terdaftar untuk akun ini? Setelah dihapus, Anda harus masuk dengan Username & Password.')) {
+  // Hapus Satu Kunci Perangkat
+  const handleRemoveSingle = async (id: string, label: string) => {
+    if (!confirm(`Hapus kunci biometrik untuk perangkat "${label}" dari database?`)) {
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+      setFeedback(null);
+      const res = await fetch(`/api/auth/biometric/check?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (res.ok) {
+        setFeedback({ type: 'success', message: `Perangkat "${label}" berhasil dihapus dari database.` });
+        loadStatus();
+      } else {
+        setFeedback({ type: 'error', message: data.error || 'Gagal menghapus perangkat dari database.' });
+      }
+    } catch {
+      setFeedback({ type: 'error', message: 'Terjadi kesalahan jaringan saat menghapus perangkat.' });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Edit / Ubah Nama Label Perangkat (Rename)
+  const handleRenameDevice = async (id: string, currentLabel: string) => {
+    const newName = prompt('Ubah nama perangkat biometrik ini:', currentLabel);
+    if (!newName || !newName.trim() || newName.trim() === currentLabel) return;
+
+    try {
+      setActionLoading(true);
+      setFeedback(null);
+      const res = await fetch('/api/auth/biometric/check', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, deviceLabel: newName.trim() }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setFeedback({ type: 'success', message: 'Nama perangkat berhasil diperbarui di database.' });
+        loadStatus();
+      } else {
+        setFeedback({ type: 'error', message: data.error || 'Gagal mengubah nama perangkat.' });
+      }
+    } catch {
+      setFeedback({ type: 'error', message: 'Terjadi kesalahan jaringan saat memperbarui nama perangkat.' });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Alur Hapus Seluruh Kunci Biometrik Akun Ini
+  const handleRemoveAll = async () => {
+    if (!confirm('Apakah Anda yakin ingin menghapus SELURUH kunci biometrik yang terdaftar untuk akun ini? Setelah dihapus, Anda harus masuk dengan Username & Password.')) {
       return;
     }
 
@@ -293,9 +353,10 @@ export default function BiometricManager({ role, backUrl, roleName }: BiometricM
       if (res.ok) {
         setHasRegistered(false);
         setCredentialCount(0);
+        setDeviceList([]);
         setFeedback({
           type: 'success',
-          message: 'Kunci biometrik berhasil dihapus dari akun ini.',
+          message: 'Seluruh kunci biometrik berhasil dihapus dari akun ini.',
         });
       } else {
         setFeedback({ type: 'error', message: 'Gagal menghapus kunci biometrik dari database.' });
@@ -497,7 +558,7 @@ export default function BiometricManager({ role, backUrl, roleName }: BiometricM
                 Status Kunci Akun
               </div>
               <div style={{ fontSize: '12px', color: '#64748b' }}>
-                {user ? `${user.nama} (${user.nip})` : 'Memuat data akun...'}
+                {user ? `${user.nama} • Username: ${user.nip}` : 'Memuat data akun...'}
               </div>
             </div>
           </div>
@@ -528,19 +589,122 @@ export default function BiometricManager({ role, backUrl, roleName }: BiometricM
                   color: hasRegistered ? '#166534' : '#475569',
                 }}
               >
-                {hasRegistered ? '✓ Kunci Biometrik Aktif Terdaftar' : 'Belum Ada Kunci Terdaftar'}
+                {hasRegistered ? `✓ Kunci Biometrik Aktif (${credentialCount} Perangkat)` : 'Belum Ada Kunci Terdaftar'}
               </span>
             </div>
             <p style={{ fontSize: '12px', color: '#64748b', margin: '6px 0 0 0', lineHeight: 1.45 }}>
               {hasRegistered
-                ? `Akun Anda memiliki ${credentialCount} kunci biometrik aktif. Anda dapat masuk langsung menggunakan sensor wajah / sidik jari tanpa perlu mengetik password.`
-                : 'Ponsel ini belum didaftarkan sebagai kunci biometrik resmi untuk akun Anda. Daftarkan sekarang agar login berikutnya lebih cepat.'}
+                ? `Akun Anda memiliki ${credentialCount} kunci biometrik terdaftar di database. Anda dapat masuk langsung menggunakan sensor wajah / sidik jari tanpa perlu mengetik password.`
+                : 'Perangkat ini belum didaftarkan sebagai kunci biometrik resmi untuk akun Anda. Daftarkan sekarang agar login berikutnya lebih cepat.'}
             </p>
           </div>
 
+          {/* Daftar Kunci Perangkat yang Tersimpan di Database */}
+          {deviceList.length > 0 && (
+            <div style={{ marginBottom: '16px' }}>
+              <div style={{ fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '8px' }}>
+                Daftar Kunci Tersimpan di Database:
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {deviceList.map((item, idx) => (
+                  <div
+                    key={item.id || idx}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      background: '#f8fafc',
+                      border: '1px solid #e2e8f0',
+                      fontSize: '12px',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+                      <span style={{ fontSize: '15px' }}>📱</span>
+                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <strong style={{ color: '#0f172a' }}>{item.deviceLabel || 'Smartphone Biometrik'}</strong>
+                        <div style={{ fontSize: '10.5px', color: '#64748b' }}>
+                          Terdaftar: {new Date(item.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                      <button
+                        type="button"
+                        onClick={() => handleRenameDevice(item.id, item.deviceLabel || 'Smartphone Biometrik')}
+                        title="Ubah nama label perangkat"
+                        disabled={actionLoading}
+                        style={{
+                          padding: '4px 8px',
+                          borderRadius: '6px',
+                          border: '1px solid #cbd5e1',
+                          background: '#ffffff',
+                          color: '#334155',
+                          fontSize: '11px',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        ✏️ Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveSingle(item.id, item.deviceLabel || 'Smartphone Biometrik')}
+                        title="Hapus kunci ini"
+                        disabled={actionLoading}
+                        style={{
+                          padding: '4px 8px',
+                          borderRadius: '6px',
+                          border: '1px solid #fecaca',
+                          background: '#fff1f2',
+                          color: '#dc2626',
+                          fontSize: '11px',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        🗑️ Hapus
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Tombol Aksi Kunci */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {hasRegistered ? (
+            <button
+              type="button"
+              disabled={actionLoading || loading || biometricsEnabled === false}
+              onClick={handleRegister}
+              style={{
+                width: '100%',
+                padding: '12px 18px',
+                borderRadius: '10px',
+                border: 'none',
+                background: biometricsEnabled === false ? '#94a3b8' : 'linear-gradient(135deg, #2563eb, #1d4ed8)',
+                color: '#ffffff',
+                fontSize: '13.5px',
+                fontWeight: '700',
+                cursor: biometricsEnabled === false ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                boxShadow: biometricsEnabled === false ? 'none' : '0 4px 12px rgba(37, 99, 235, 0.25)',
+              }}
+            >
+              <IconFingerprint size={18} />
+              <span>
+                {actionLoading
+                  ? 'Menunggu Sensor Ponsel...'
+                  : hasRegistered
+                  ? 'Daftarkan Perangkat Baru / Ponsel Lain'
+                  : 'Daftarkan Biometrik Ponsel Ini'}
+              </span>
+            </button>
+
+            {hasRegistered && (
               <>
                 <button
                   type="button"
@@ -569,7 +733,7 @@ export default function BiometricManager({ role, backUrl, roleName }: BiometricM
                 <button
                   type="button"
                   disabled={actionLoading || loading}
-                  onClick={handleRemove}
+                  onClick={handleRemoveAll}
                   style={{
                     width: '100%',
                     padding: '10px 16px',
@@ -587,35 +751,26 @@ export default function BiometricManager({ role, backUrl, roleName }: BiometricM
                   }}
                 >
                   <IconTrash size={15} />
-                  <span>Hapus Kunci Biometrik</span>
+                  <span>Hapus Seluruh Kunci Biometrik Akun Ini</span>
                 </button>
               </>
-            ) : (
-              <button
-                type="button"
-                disabled={actionLoading || loading || biometricsEnabled === false}
-                onClick={handleRegister}
-                style={{
-                  width: '100%',
-                  padding: '12px 18px',
-                  borderRadius: '10px',
-                  border: 'none',
-                  background: biometricsEnabled === false ? '#94a3b8' : 'linear-gradient(135deg, #2563eb, #1d4ed8)',
-                  color: '#ffffff',
-                  fontSize: '13.5px',
-                  fontWeight: '700',
-                  cursor: biometricsEnabled === false ? 'not-allowed' : 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  boxShadow: biometricsEnabled === false ? 'none' : '0 4px 12px rgba(37, 99, 235, 0.25)',
-                }}
-              >
-                <IconFingerprint size={18} />
-                <span>{actionLoading ? 'Menunggu Sensor Ponsel...' : 'Daftarkan Biometrik Ponsel Ini'}</span>
-              </button>
             )}
+          </div>
+
+          {/* Catatan Cadangan Password jika HP Rusak */}
+          <div
+            style={{
+              marginTop: '14px',
+              padding: '10px 12px',
+              background: '#f8fafc',
+              border: '1px solid #e2e8f0',
+              borderRadius: '8px',
+              fontSize: '11px',
+              color: '#475569',
+              lineHeight: '1.5',
+            }}
+          >
+            💡 <strong>Jika Ponsel Rusak / Ganti HP Baru:</strong> Akun Anda tetap aman! Anda selalu dapat masuk menggunakan <strong>Username &amp; Password</strong> di perangkat baru, lalu daftarkan sensor ponsel baru Anda pada menu ini.
           </div>
         </div>
 

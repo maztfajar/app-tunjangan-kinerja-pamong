@@ -50,6 +50,62 @@ export const STANDARD_LICENSE: LicenseInfo = {
 const MASTER_SALT = process.env.LICENSE_SECRET || 'TKP-PAMONG-MASTER-KEY-2026-X99';
 
 /**
+ * Normalisasi nama domain: bersihkan protokol http/https, port, path, dan awalan www.
+ */
+export function normalizeDomain(val: string): string {
+  if (!val || typeof val !== 'string') return '';
+  return val
+    .replace(/^https?:\/\//i, '')
+    .split('/')[0]
+    .split(':')[0]
+    .toLowerCase()
+    .trim()
+    .replace(/^www\./i, '');
+}
+
+/**
+ * Ekstraksi domain aktif dari berbagai kemungkinan HTTP headers (kompatibel cPanel Passenger, LiteSpeed, Nginx, Apache)
+ */
+export function extractDomainFromHeaders(headerList: { get: (name: string) => string | null }): string | undefined {
+  const forwardedHost = headerList.get('x-forwarded-host');
+  if (forwardedHost) return forwardedHost;
+
+  const originalHost = headerList.get('x-original-host');
+  if (originalHost) return originalHost;
+
+  const forwardedServer = headerList.get('x-forwarded-server');
+  if (forwardedServer) return forwardedServer;
+
+  const host = headerList.get('host');
+  if (host && !host.includes('localhost') && !host.includes('127.0.0.1') && !host.includes('::1')) {
+    return host;
+  }
+
+  // Fallback ke referer atau origin jika host bernilai loopback (khas Apache proxy mod_passenger)
+  const referer = headerList.get('referer');
+  if (referer) {
+    try {
+      const url = new URL(referer);
+      if (url.hostname && !url.hostname.includes('localhost') && !url.hostname.includes('127.0.0.1')) {
+        return url.hostname;
+      }
+    } catch {}
+  }
+
+  const origin = headerList.get('origin');
+  if (origin) {
+    try {
+      const url = new URL(origin);
+      if (url.hostname && !url.hostname.includes('localhost') && !url.hostname.includes('127.0.0.1')) {
+        return url.hostname;
+      }
+    } catch {}
+  }
+
+  return host || undefined;
+}
+
+/**
  * Validasi dan decode Serial Number string
  */
 export function verifySerialNumber(rawKey: string, currentHost?: string): { valid: boolean; info: LicenseInfo; error?: string } {
@@ -78,18 +134,23 @@ export function verifySerialNumber(rawKey: string, currentHost?: string): { vali
           // 1. Cek kunci domain jika serial mengikat domain tertentu
           if (payload.domains && Array.isArray(payload.domains) && payload.domains.length > 0) {
             if (currentHost) {
-              const cleanHost = currentHost.split(':')[0].toLowerCase().trim();
-              const isAllowed = payload.domains.some((d: string) => {
-                const cleanAllowed = d.split(':')[0].toLowerCase().trim();
-                return cleanHost === cleanAllowed || cleanHost.endsWith('.' + cleanAllowed);
-              });
+              const normHost = normalizeDomain(currentHost);
+              // Abaikan jika pemanggilan berasal dari internal server loopback tanpa domain publik
+              const isLoopback = normHost === 'localhost' || normHost === '127.0.0.1' || normHost === '::1';
 
-              if (!isAllowed) {
-                return {
-                  valid: false,
-                  info: STANDARD_LICENSE,
-                  error: `Serial Number dikunci khusus untuk domain: [${payload.domains.join(', ')}]. Domain aktif (${cleanHost}) tidak cocok.`,
-                };
+              if (!isLoopback) {
+                const isAllowed = payload.domains.some((d: string) => {
+                  const normAllowed = normalizeDomain(d);
+                  return normHost === normAllowed || normHost.endsWith('.' + normAllowed);
+                });
+
+                if (!isAllowed) {
+                  return {
+                    valid: false,
+                    info: STANDARD_LICENSE,
+                    error: `Serial Number dikunci khusus untuk domain: [${payload.domains.join(', ')}]. Domain aktif (${normHost}) tidak cocok.`,
+                  };
+                }
               }
             }
           }
@@ -192,10 +253,9 @@ export function verifySerialNumber(rawKey: string, currentHost?: string): { vali
 }
 
 /**
- * Cache in-memory untuk performa request tinggi
+ * Cache in-memory per host untuk performa request tinggi
  */
-let cachedLicense: { info: LicenseInfo; timestamp: number; host?: string } | null = null;
-const CACHE_TTL_MS = 60 * 1000; // 1 menit
+const licenseCache = new Map<string, { info: LicenseInfo; timestamp: number }>();
 
 /**
  * Mengambil informasi lisensi aktif saat ini dari database
@@ -207,14 +267,19 @@ export async function getLicenseInfo(explicitHost?: string): Promise<LicenseInfo
     try {
       const { headers } = await import('next/headers');
       const headerList = await headers();
-      host = headerList.get('x-forwarded-host') || headerList.get('host') || undefined;
+      host = extractDomainFromHeaders(headerList);
     } catch {
       // Di luar konteks request Next.js (misal script CLI)
     }
   }
 
-  if (cachedLicense && now - cachedLicense.timestamp < CACHE_TTL_MS && (!cachedLicense.host || cachedLicense.host === host)) {
-    return cachedLicense.info;
+  const cacheKey = host ? normalizeDomain(host) : '__global__';
+  const cached = licenseCache.get(cacheKey);
+  if (cached) {
+    const ttl = cached.info.isPro ? 60000 : 5000;
+    if (now - cached.timestamp < ttl) {
+      return cached.info;
+    }
   }
 
   try {
@@ -224,13 +289,13 @@ export async function getLicenseInfo(explicitHost?: string): Promise<LicenseInfo
     });
 
     if (!settings?.serialNumber) {
-      cachedLicense = { info: STANDARD_LICENSE, timestamp: now, host };
+      licenseCache.set(cacheKey, { info: STANDARD_LICENSE, timestamp: now });
       return STANDARD_LICENSE;
     }
 
     const verification = verifySerialNumber(settings.serialNumber, host);
     const result = verification.valid ? verification.info : STANDARD_LICENSE;
-    cachedLicense = { info: result, timestamp: now, host };
+    licenseCache.set(cacheKey, { info: result, timestamp: now });
     return result;
   } catch (error) {
     console.error('Error membaca lisensi sistem:', error);
@@ -242,5 +307,5 @@ export async function getLicenseInfo(explicitHost?: string): Promise<LicenseInfo
  * Reset cache ketika serial number diubah / dihapus
  */
 export function invalidateLicenseCache() {
-  cachedLicense = null;
+  licenseCache.clear();
 }

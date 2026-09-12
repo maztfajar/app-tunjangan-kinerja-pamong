@@ -13,7 +13,9 @@ export function proxy(request: NextRequest) {
     pathname === '/' ||
     pathname.startsWith('/_next') ||
     pathname.startsWith('/leaflet') ||
-    pathname.startsWith('/api/auth')
+    pathname.startsWith('/api/auth') ||
+    pathname.startsWith('/api/license/status') ||
+    pathname.startsWith('/api/settings')
   ) {
     // Jika sudah login dan mencoba ke /login, arahkan ke dashboard sesuai role
     if (pathname === '/login' && token) {
@@ -86,6 +88,6 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next|favicon.ico|icons|leaflet|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff2?)$|api/auth).*)',
+    '/((?!_next|favicon.ico|icons|leaflet|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff2?)$|api/auth|api/license/status|api/settings).*)',
   ],
 };

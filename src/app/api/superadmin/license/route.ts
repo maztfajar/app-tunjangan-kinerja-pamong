@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
-import { getLicenseInfo, verifySerialNumber, invalidateLicenseCache } from '@/lib/license';
+import { getLicenseInfo, verifySerialNumber, invalidateLicenseCache, extractDomainFromHeaders } from '@/lib/license';
 
 export async function GET(request: Request) {
   try {
@@ -10,7 +10,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Akses ditolak. Khusus Super Admin.' }, { status: 403 });
     }
 
-    const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || undefined;
+    const host = extractDomainFromHeaders(request.headers);
     const license = await getLicenseInfo(host);
     const userCount = await prisma.user.count({ where: { role: 'PEGAWAI' } });
 
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Serial Number wajib diisi.' }, { status: 400 });
     }
 
-    const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || undefined;
+    const host = extractDomainFromHeaders(request.headers);
     const verification = verifySerialNumber(rawKey, host);
     if (!verification.valid) {
       return NextResponse.json(

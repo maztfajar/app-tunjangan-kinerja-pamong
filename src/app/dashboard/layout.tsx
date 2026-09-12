@@ -283,9 +283,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   };
 
-  // Cek apakah halaman saat ini adalah menu sekunder (Rekap, Laporan, Agenda, Panduan)
-  const isSecondaryPage = ['/dashboard/rekap', '/dashboard/laporan', '/dashboard/agenda', '/dashboard/panduan'].includes(pathname);
-
   return (
     <div className="app-container" suppressHydrationWarning>
       {/* Mobile Backdrop saat Drawer terbuka */}
@@ -501,21 +498,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             >
               <IconMenu size={20} color="#334155" />
             </button>
-
-            {/* Back Button di Mobile jika di halaman sekunder */}
-            {isSecondaryPage && (
-              <button
-                onClick={() => router.push('/dashboard')}
-                className="top-navbar-back-btn"
-                title="Kembali ke Beranda"
-                aria-label="Kembali ke Beranda"
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4361ee" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M19 12H5M12 19l-7-7 7-7" />
-                </svg>
-                <span>Beranda</span>
-              </button>
-            )}
 
             {/* Office Brand Badge */}
             <div className="top-navbar-brand-badge">
