@@ -253,7 +253,7 @@ export default function AktifitasPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
         <div>
           <h2 style={{ fontSize: '22px', fontWeight: '800', color: '#0f172a', marginBottom: '4px' }}>
-            Aktivitas Harian 📋
+            Aktivitas Harian
           </h2>
           <p style={{ color: '#64748b', fontSize: '13px' }}>
             Pencatatan aktivitas pekerjaan hari ini — {todayLabel}

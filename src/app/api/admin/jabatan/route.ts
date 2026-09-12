@@ -201,3 +201,103 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: 'Gagal menghapus kategori', details: String(error) }, { status: 500 });
   }
 }
+
+export async function PUT(request: Request) {
+  try {
+    const session = await getSession();
+    if (!session || (session.role !== 'ADMIN' && session.role !== 'SUPERADMIN')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { id, type, nama, kategori } = await request.json();
+
+    if (!id) {
+      return NextResponse.json({ error: 'ID kategori wajib diisi' }, { status: 400 });
+    }
+    if (!nama || !nama.trim()) {
+      return NextResponse.json({ error: 'Nama kategori wajib diisi' }, { status: 400 });
+    }
+
+    const cleanNama = nama.trim();
+
+    if (type === 'unitKerja') {
+      const existing = await prisma.masterUnitKerja.findFirst({
+        where: {
+          nama: cleanNama,
+          NOT: { id },
+        },
+      });
+      if (existing) {
+        return NextResponse.json({ error: `Unit Kerja "${cleanNama}" sudah terdaftar` }, { status: 400 });
+      }
+
+      const oldItem = await prisma.masterUnitKerja.findUnique({ where: { id } });
+      if (!oldItem) {
+        return NextResponse.json({ error: 'Unit Kerja tidak ditemukan' }, { status: 404 });
+      }
+
+      const item = await prisma.masterUnitKerja.update({
+        where: { id },
+        data: {
+          nama: cleanNama,
+          kategori: kategori?.trim() || oldItem.kategori || 'Kalurahan',
+        },
+      });
+
+      // Update referensi unitKerja di tabel User jika nama berubah
+      if (oldItem.nama !== cleanNama) {
+        await prisma.user.updateMany({
+          where: { unitKerja: oldItem.nama },
+          data: { unitKerja: cleanNama },
+        });
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: `Unit Kerja berhasil diperbarui menjadi "${cleanNama}"`,
+        item,
+      });
+    } else {
+      // Default: type === 'jabatan'
+      const existing = await prisma.masterJabatan.findFirst({
+        where: {
+          nama: cleanNama,
+          NOT: { id },
+        },
+      });
+      if (existing) {
+        return NextResponse.json({ error: `Jabatan "${cleanNama}" sudah terdaftar` }, { status: 400 });
+      }
+
+      const oldItem = await prisma.masterJabatan.findUnique({ where: { id } });
+      if (!oldItem) {
+        return NextResponse.json({ error: 'Jabatan tidak ditemukan' }, { status: 404 });
+      }
+
+      const item = await prisma.masterJabatan.update({
+        where: { id },
+        data: {
+          nama: cleanNama,
+          kategori: kategori?.trim() || oldItem.kategori || 'Pamong',
+        },
+      });
+
+      // Update referensi jabatan di tabel User jika nama berubah
+      if (oldItem.nama !== cleanNama) {
+        await prisma.user.updateMany({
+          where: { jabatan: oldItem.nama },
+          data: { jabatan: cleanNama },
+        });
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: `Jabatan berhasil diperbarui menjadi "${cleanNama}"`,
+        item,
+      });
+    }
+  } catch (error) {
+    console.error('Update master jabatan error:', error);
+    return NextResponse.json({ error: 'Gagal memperbarui kategori', details: String(error) }, { status: 500 });
+  }
+}

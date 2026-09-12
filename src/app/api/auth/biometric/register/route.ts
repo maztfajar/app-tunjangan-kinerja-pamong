@@ -16,24 +16,33 @@ export async function GET(req: NextRequest) {
 
     const challenge = generateWebAuthnChallenge(user.id);
     const host = req.headers.get('x-forwarded-host') || req.headers.get('host') || 'localhost';
-    const domain = host.split(':')[0];
+    const cleanHost = host.split(':')[0].trim().toLowerCase();
+    const isIp = /^(\d{1,3}\.){3}\d{1,3}$/.test(cleanHost) || cleanHost.includes(':');
+
+    // Berdasarkan W3C WebAuthn spec §5.1.4.1, RP ID TIDAK BOLEH berupa IP address.
+    // Jika diakses via IP, jangan kirimkan id agar browser fallback ke origin atau client menangani.
+    const rpEntity: { name: string; id?: string } = {
+      name: 'E-Kinerja Pamong Kalurahan',
+    };
+    if (!isIp) {
+      rpEntity.id = cleanHost;
+    }
 
     return NextResponse.json({
       success: true,
       options: {
         challenge,
-        rp: {
-          name: 'E-Kinerja Pamong Kalurahan',
-          id: domain,
-        },
+        rp: rpEntity,
         user: {
           id: Buffer.from(user.id).toString('base64url'),
           name: user.nip,
           displayName: user.nama,
         },
         pubKeyCredParams: [
-          { alg: -7, type: 'public-key' },   // ES256 (Standar Android & iPhone)
-          { alg: -257, type: 'public-key' },  // RS256
+          { alg: -7, type: 'public-key' },    // ES256 (Standar Android, iPhone & Mac)
+          { alg: -257, type: 'public-key' },  // RS256 (Windows Hello)
+          { alg: -8, type: 'public-key' },    // Ed25519
+          { alg: -37, type: 'public-key' },   // PS256
         ],
         authenticatorSelection: {
           authenticatorAttachment: 'platform', // Biometrik bawaan fisik smartphone (Face/Fingerprint)

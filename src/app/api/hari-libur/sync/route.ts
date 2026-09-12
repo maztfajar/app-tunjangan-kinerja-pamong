@@ -2,12 +2,18 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
 import { fetchLiburNasional } from '@/lib/hariLiburData';
+import { getLicenseInfo } from '@/lib/license';
 
 export async function POST(request: Request) {
   try {
     const session = await getSession();
     if (!session || session.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const license = await getLicenseInfo();
+    if (!license.features.holidayCalendar) {
+      return NextResponse.json({ error: 'Sinkronisasi Hari Libur hanya tersedia pada lisensi PRO.' }, { status: 403 });
     }
 
     const body = await request.json().catch(() => ({}));

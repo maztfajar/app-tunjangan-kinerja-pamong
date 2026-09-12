@@ -45,10 +45,20 @@ export default function PegawaiPage() {
     error: string;
   } | null>(null);
 
+  const [licenseStatus, setLicenseStatus] = useState<{ isPro: boolean; maxUsers: number; features: { unlimitedUsers: boolean } } | null>(null);
+
   const fetchPegawai = async () => {
     const res = await fetch('/api/pegawai');
     const data = await res.json();
     setPegawai(data.pegawai || []);
+  };
+
+  const fetchLicenseStatus = async () => {
+    try {
+      const res = await fetch('/api/license/status');
+      const data = await res.json();
+      setLicenseStatus(data);
+    } catch {}
   };
 
   const fetchMasterData = async () => {
@@ -66,10 +76,16 @@ export default function PegawaiPage() {
 
   useEffect(() => {
     fetchPegawai();
+    fetchLicenseStatus();
     fetchMasterData();
   }, []);
 
   const openModal = (p?: Pegawai) => {
+    if (!p && licenseStatus && !licenseStatus.features?.unlimitedUsers && pegawai.length >= (licenseStatus.maxUsers || 50)) {
+      alert(`Batas kuota pegawai (${licenseStatus.maxUsers || 50} orang) telah tercapai. Hubungi administrator untuk meningkatkan kapasitas sistem.`);
+      return;
+    }
+
     if (p) {
       setEditId(p.id);
       setForm({

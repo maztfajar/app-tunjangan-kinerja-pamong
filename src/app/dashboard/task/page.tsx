@@ -67,7 +67,7 @@ export default function TaskPage() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       <div>
         <h2 style={{ fontSize: '22px', fontWeight: '800', color: '#0f172a', marginBottom: '4px' }}>
-          Log Aktivitas 📝
+          Log Aktivitas
         </h2>
         <p style={{ color: '#64748b', fontSize: '13px' }}>
           Riwayat semua aktivitas dan tugas kerja yang telah dicatat

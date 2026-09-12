@@ -16,6 +16,7 @@ function LoginForm() {
   const [botToken, setBotToken] = useState('');
   const [isMobile, setIsMobile] = useState(false);
   const [supportsBiometric, setSupportsBiometric] = useState(false);
+  const [biometricFeatureActive, setBiometricFeatureActive] = useState(false);
   const [biometricLoading, setBiometricLoading] = useState(false);
   const [branding, setBranding] = useState({
     namaApp: 'Tunjangan Kinerja & Absensi',
@@ -40,9 +41,23 @@ function LoginForm() {
       setIsMobile(mobileCheck);
 
       if (mobileCheck && window.PublicKeyCredential) {
-        window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
-          .then((available) => setSupportsBiometric(available))
-          .catch(() => setSupportsBiometric(false));
+        fetch('/api/license/status')
+          .then((r) => r.json())
+          .then((lic) => {
+            const hasBio = Boolean(lic?.features?.biometrics);
+            setBiometricFeatureActive(hasBio);
+            if (hasBio) {
+              window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
+                .then((available) => setSupportsBiometric(available))
+                .catch(() => setSupportsBiometric(false));
+            } else {
+              setSupportsBiometric(false);
+            }
+          })
+          .catch(() => {
+            setBiometricFeatureActive(false);
+            setSupportsBiometric(false);
+          });
       }
     }
   }, []);
@@ -69,6 +84,12 @@ function LoginForm() {
     setBiometricLoading(true);
 
     try {
+      if (typeof window !== 'undefined' && !window.isSecureContext && window.location.hostname !== 'localhost') {
+        setError('Autentikasi biometrik memerlukan koneksi aman (HTTPS / SSL). Browser memblokir sensor biometrik ponsel jika dibuka melalui HTTP lokal (contoh: http://192.168.x.x). Gunakan domain HTTPS.');
+        setBiometricLoading(false);
+        return;
+      }
+
       if (!window.PublicKeyCredential) {
         setError('Perangkat ini tidak mendukung standar autentikasi biometrik.');
         setBiometricLoading(false);
@@ -84,22 +105,27 @@ function LoginForm() {
         return;
       }
 
-      const { challenge, rpId } = challengeData.options;
+      const { challenge } = challengeData.options;
 
       // Ubah base64url challenge menjadi Uint8Array
       const challengeBytes = Uint8Array.from(atob(challenge.replace(/-/g, '+').replace(/_/g, '/')), (c) =>
         c.charCodeAt(0)
       );
 
+      const cleanHost = window.location.hostname.trim().toLowerCase();
+      const isIp = /^(\d{1,3}\.){3}\d{1,3}$/.test(cleanHost) || cleanHost.includes(':');
+
+      const publicKeyReq: PublicKeyCredentialRequestOptions = {
+        challenge: challengeBytes,
+        userVerification: 'required',
+        timeout: 60000,
+        ...(!isIp ? { rpId: cleanHost } : {}),
+        ...({ hints: ['client-device'] } as Record<string, unknown>),
+      };
+
       // 2. Minta verifikasi biometrik asli dari OS ponsel (Wajah / Sidik Jari)
       const credential = (await navigator.credentials.get({
-        publicKey: {
-          challenge: challengeBytes,
-          rpId: window.location.hostname,
-          userVerification: 'required',
-          timeout: 60000,
-          ...({ hints: ['client-device'] } as Record<string, unknown>),
-        } as PublicKeyCredentialRequestOptions,
+        publicKey: publicKeyReq,
       })) as PublicKeyCredential | null;
 
       if (!credential) {
@@ -131,9 +157,9 @@ function LoginForm() {
       const errorMsg = (err as Error)?.message || '';
       console.warn('Biometric login error:', err);
       if (errorMsg.includes('NotAllowedError') || errorMsg.includes('canceled')) {
-        setError('Face ID / Sidik Jari belum terdaftar di ponsel ini atau dibatalkan. Pilihan barcode di iPhone muncul karena iPhone belum memiliki data Face ID untuk akun ini di website ini. Silakan masuk dulu dengan Username & Password, lalu aktifkan Face ID di dalam aplikasi.');
+        setError('Face ID / Sidik Jari belum terdaftar di ponsel ini atau dibatalkan. Pilihan barcode di iPhone muncul karena iPhone belum memiliki data Face ID untuk akun Anda di website ini. Silakan masuk dulu dengan Username & Password, lalu daftarkan kunci di menu Kunci Biometrik.');
       } else {
-        setError('Biometrik belum terdaftar untuk akun ini pada ponsel ini. Silakan masuk menggunakan username & password terlebih dahulu.');
+        setError('Kunci biometrik belum terdaftar untuk akun ini pada perangkat ini. Silakan masuk menggunakan username & password terlebih dahulu.');
       }
       setBiometricLoading(false);
     }
@@ -463,8 +489,8 @@ function LoginForm() {
               )}
             </button>
 
-            {/* Opsi Login Biometrik - Khusus Smartphone (Android / iOS) */}
-            {isMobile && (
+            {/* Opsi Login Biometrik - Khusus Smartphone (Android / iOS) pada Mode Pro */}
+            {isMobile && biometricFeatureActive && (
               <div style={{ marginTop: '20px' }}>
                 <div
                   style={{

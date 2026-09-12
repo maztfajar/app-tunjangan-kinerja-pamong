@@ -11,6 +11,7 @@ import {
   IconTrash,
   IconUser,
   IconBuilding,
+  IconAlertTriangle,
 } from '@/components/ui/Icons';
 
 interface PejabatUser {
@@ -48,6 +49,7 @@ export default function SuperAdminFormatLaporanPage() {
   const [pejabatList, setPejabatList] = useState<PejabatUser[]>([]);
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
+  const [featureAllowed, setFeatureAllowed] = useState<boolean | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [showSavedToast, setShowSavedToast] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -65,8 +67,10 @@ export default function SuperAdminFormatLaporanPage() {
     Promise.all([
       fetch('/api/settings').then((r) => r.json()),
       fetch('/api/superadmin/pejabat-list').then((r) => r.json()),
+      fetch('/api/license/status').then((r) => r.json()),
     ])
-      .then(([settingsData, pejabatData]) => {
+      .then(([settingsData, pejabatData, licenseData]) => {
+        setFeatureAllowed(Boolean(licenseData?.features?.customKop));
         if (settingsData.settings) {
           const s = settingsData.settings;
           setForm({
@@ -172,7 +176,7 @@ export default function SuperAdminFormatLaporanPage() {
           }));
         }
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error('Submit error:', err);
       setMessage({ type: 'error', text: 'Terjadi kesalahan jaringan atau server saat menyimpan data.' });
     } finally {
@@ -185,6 +189,23 @@ export default function SuperAdminFormatLaporanPage() {
     month: 'long',
     year: 'numeric',
   });
+
+  if (featureAllowed === false) {
+    return (
+      <div style={{ maxWidth: 560, margin: '60px auto', padding: '36px', background: '#fff', borderRadius: 20, border: '1px solid #fed7aa', textAlign: 'center', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
+        <div style={{ width: 60, height: 60, borderRadius: '50%', background: '#fff7ed', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+          <IconAlertTriangle size={30} color="#f97316" />
+        </div>
+        <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#0f172a', marginBottom: '8px' }}>Fitur Khusus Lisensi PRO</h2>
+        <p style={{ fontSize: '14px', color: '#64748b', lineHeight: 1.6, marginBottom: '24px' }}>
+          Menu <b>Format Laporan &amp; Kustomisasi Kop</b> adalah fitur ekstensi sistem berlisensi resmi. Silakan masukkan Serial Number resmi di halaman Ringkasan Sistem untuk membuka fitur ini.
+        </p>
+        <Link href="/superadmin" className="btn-primary" style={{ display: 'inline-flex', padding: '10px 22px', fontWeight: 700, textDecoration: 'none', borderRadius: 10 }}>
+          ← Buka Pengaturan Serial Number
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', width: '100%', maxWidth: '1400px', margin: '0 auto' }}>

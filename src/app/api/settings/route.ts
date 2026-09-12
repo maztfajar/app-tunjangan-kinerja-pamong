@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
+import { getLicenseInfo } from '@/lib/license';
 
 export async function GET() {
   try {
@@ -30,7 +31,14 @@ export async function GET() {
       } catch {}
     }
 
-    return NextResponse.json({ settings });
+    // Jika lisensi standar, paksa format cetak ke F4 dan Landscape
+    const license = await getLicenseInfo();
+    if (!license.features.customKop) {
+      settings.ukuranKertas = 'F4';
+      settings.posisiDokumen = 'landscape';
+    }
+
+    return NextResponse.json({ settings, isPro: license.isPro });
   } catch (error) {
     console.error('Get settings error:', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
@@ -69,13 +77,19 @@ export async function PUT(request: Request) {
     if (body.kopKontak !== undefined) updateData.kopKontak = body.kopKontak ? body.kopKontak.trim() : null;
 
     // Pengaturan Ukuran Kertas Cetak & Posisi Dokumen
-    if (body.ukuranKertas !== undefined) {
-      const validSizes = ['A4', 'F4'];
-      updateData.ukuranKertas = validSizes.includes(body.ukuranKertas) ? body.ukuranKertas : 'A4';
-    }
-    if (body.posisiDokumen !== undefined) {
-      const validPositions = ['portrait', 'landscape'];
-      updateData.posisiDokumen = validPositions.includes(body.posisiDokumen) ? body.posisiDokumen : 'portrait';
+    const license = await getLicenseInfo();
+    if (!license.features.customKop) {
+      updateData.ukuranKertas = 'F4';
+      updateData.posisiDokumen = 'landscape';
+    } else {
+      if (body.ukuranKertas !== undefined) {
+        const validSizes = ['A4', 'F4'];
+        updateData.ukuranKertas = validSizes.includes(body.ukuranKertas) ? body.ukuranKertas : 'A4';
+      }
+      if (body.posisiDokumen !== undefined) {
+        const validPositions = ['portrait', 'landscape'];
+        updateData.posisiDokumen = validPositions.includes(body.posisiDokumen) ? body.posisiDokumen : 'portrait';
+      }
     }
     if (body.sembunyikanNip !== undefined) {
       updateData.sembunyikanNip = Boolean(body.sembunyikanNip);

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getLicenseInfo } from '@/lib/license';
 
 const EXPECTED_KEYS = new Set([
   'users',
@@ -29,10 +30,15 @@ function verifySecret(req: Request) {
 export async function POST(req: Request) {
   if (!verifySecret(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  let body: any;
+  const license = await getLicenseInfo();
+  if (!license.features.backupRestore) {
+    return NextResponse.json({ error: 'Fitur Restore Database hanya tersedia pada lisensi PRO.' }, { status: 403 });
+  }
+
+  let body: Record<string, unknown>;
   try {
     body = await req.json();
-  } catch (err) {
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 
@@ -45,50 +51,48 @@ export async function POST(req: Request) {
 
   try {
     // Perform inserts in safe, non-destructive manner: createMany with skipDuplicates where possible
-    const results: any = {};
+    const results: Record<string, unknown> = {};
 
     if (body.masterJabatan && Array.isArray(body.masterJabatan) && body.masterJabatan.length) {
-      results.masterJabatan = await prisma.masterJabatan.createMany({ data: body.masterJabatan, skipDuplicates: true });
+      results.masterJabatan = await prisma.masterJabatan.createMany({ data: body.masterJabatan as never, skipDuplicates: true });
     }
     if (body.masterUnitKerja && Array.isArray(body.masterUnitKerja) && body.masterUnitKerja.length) {
-      results.masterUnitKerja = await prisma.masterUnitKerja.createMany({ data: body.masterUnitKerja, skipDuplicates: true });
+      results.masterUnitKerja = await prisma.masterUnitKerja.createMany({ data: body.masterUnitKerja as never, skipDuplicates: true });
     }
     if (body.appSettings && typeof body.appSettings === 'object') {
       // upsert app settings
-      await prisma.appSettings.upsert({ where: { id: 'default' }, update: body.appSettings, create: { ...body.appSettings, id: 'default' } });
+      await prisma.appSettings.upsert({ where: { id: 'default' }, update: body.appSettings as never, create: { ...(body.appSettings as object), id: 'default' } as never });
       results.appSettings = 1;
     }
     if (body.jamKerja && Array.isArray(body.jamKerja) && body.jamKerja.length) {
-      results.jamKerja = await prisma.jamKerja.createMany({ data: body.jamKerja, skipDuplicates: true });
+      results.jamKerja = await prisma.jamKerja.createMany({ data: body.jamKerja as never, skipDuplicates: true });
     }
 
     // Users and relational data — create users first
     if (body.users && Array.isArray(body.users) && body.users.length) {
       // Use createMany to preserve ids where possible
-      results.users = await prisma.user.createMany({ data: body.users, skipDuplicates: true });
+      results.users = await prisma.user.createMany({ data: body.users as never, skipDuplicates: true });
     }
 
-    const manyMap: [string, any, any?][] = [
-      ['presensi', body.presensi, prisma.presensi],
-      ['aktifitas', body.aktifitas, prisma.aktifitas],
-      ['tasks', body.tasks, prisma.task],
-      ['agenda', body.agenda, prisma.agenda],
-      ['laporan', body.laporan, prisma.laporan],
-      ['laporanKinerja', body.laporanKinerja, prisma.laporanKinerja],
-      ['kegiatanJabatan', body.kegiatanJabatan, prisma.kegiatanJabatan],
-      ['rencanaKegiatan', body.rencanaKegiatan, prisma.rencanaKegiatan],
-      ['outputKegiatan', body.outputKegiatan, prisma.outputKegiatan],
-      ['hariLibur', body.hariLibur, prisma.hariLibur],
-      ['biometricCredential', body.biometricCredential, prisma.biometricCredential],
+    const manyMap: [string, unknown, { createMany: (args: { data: unknown; skipDuplicates: boolean }) => Promise<unknown> }][] = [
+      ['presensi', body.presensi, prisma.presensi as never],
+      ['aktifitas', body.aktifitas, prisma.aktifitas as never],
+      ['tasks', body.tasks, prisma.task as never],
+      ['laporan', body.laporan, prisma.laporan as never],
+      ['laporanKinerja', body.laporanKinerja, prisma.laporanKinerja as never],
+      ['agenda', body.agenda, prisma.agenda as never],
+      ['kegiatanJabatan', body.kegiatanJabatan, prisma.kegiatanJabatan as never],
+      ['rencanaKegiatan', body.rencanaKegiatan, prisma.rencanaKegiatan as never],
+      ['outputKegiatan', body.outputKegiatan, prisma.outputKegiatan as never],
+      ['hariLibur', body.hariLibur, prisma.hariLibur as never],
+      ['biometricCredential', body.biometricCredential, prisma.biometricCredential as never],
     ];
 
     for (const [key, arr, model] of manyMap) {
       if (arr && Array.isArray(arr) && arr.length) {
         try {
-          // @ts-ignore
           results[key] = await model.createMany({ data: arr, skipDuplicates: true });
         } catch (e) {
-          // continue — some models may not support createMany for relations; ignore and report
           results[key] = { error: String(e) };
         }
       }

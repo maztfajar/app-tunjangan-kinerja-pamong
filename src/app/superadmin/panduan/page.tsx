@@ -34,6 +34,7 @@ interface SectionGuide {
 
 const CATEGORIES = [
   { id: 'all', label: 'Semua Panduan' },
+  { id: 'lisensi', label: 'Serial Number & Ekstensi Fitur' },
   { id: 'identitas', label: 'Identitas & Logo Web App' },
   { id: 'admin', label: 'Manajemen User Admin' },
   { id: 'database', label: 'Kelola Database' },
@@ -47,6 +48,45 @@ export default function BukuPanduanSuperAdminPage() {
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
 
   const guides: SectionGuide[] = [
+    {
+      id: 'lisensi',
+      category: 'lisensi',
+      title: 'Aktivasi Serial Number & Rincian Fitur Ekstensi (PRO)',
+      subtitle: 'Panduan lengkap pengelolaan status lisensi sistem, tata cara aktivasi serial number resmi, serta rincian 8 fitur ekstensi yang terbuka.',
+      icon: IconShield,
+      badge: 'Lisensi & Kapasitas',
+      steps: [
+        {
+          nomor: '01',
+          judul: 'Memahami Mode Standar vs Mode Ekstensi (PRO)',
+          deskripsi: 'Sistem aplikasi ini memiliki 2 tingkatan operasional:\n• Versi Standar (Bawaan): Dibatasi maksimal 50 akun pegawai, preview/cetak dokumen terkunci pada ukuran F4 dengan orientasi Landscape, dan fokus pada presensi GPS serta laporan kinerja dasar.\n• Fitur Ekstensi Penuh (PRO): Mengaktifkan seluruh kapasitas tanpa batas (unlimited pegawai), kebebasan memilih ukuran kertas (A4 & F4) serta orientasi (Portrait & Landscape), dan 8 modul lanjutan.',
+          tips: 'Aplikasi tidak menampilkan tulisan "PRO" yang mencolok pada antarmuka pengguna agar sistem tetap terlihat elegan dan rapi.',
+        },
+        {
+          nomor: '02',
+          judul: 'Tata Cara Aktivasi Serial Number',
+          deskripsi: '1. Buka halaman utama Super Admin (Ringkasan Sistem).\n2. Temukan card "Serial Number" yang terletak tepat di bawah card "Reset & Pembersihan Database".\n3. Klik tombol "Masukkan Serial Number".\n4. Tempelkan serial number resmi yang Anda peroleh (misal: format blok TKP-PRO-XXXX-XXXX-XXXX-XXXX atau token resmi instansi).\n5. Klik "Simpan & Verifikasi". Sistem akan memvalidasi tanda tangan kriptografis secara lokal dan langsung mengaktifkan status terverifikasi.',
+          tips: 'Aktivasi bekerja 100% offline dan tidak memerlukan koneksi internet ke server lisensi eksternal.',
+        },
+        {
+          nomor: '03',
+          judul: 'Daftar 8 Fitur Ekstensi Sistem yang Terbuka',
+          deskripsi: 'Setelah serial number terverifikasi, sistem otomatis membuka 8 fitur berikut:\n1. Presensi Biometrik (Sidik Jari HP / WebAuthn): Pamong dan Super Admin dapat login & absen menggunakan sensor sidik jari / FaceID perangkat ponsel.\n2. Unlimited Pegawai: Kapasitas pendaftaran pamong terbuka penuh melebihi batas standar 50 orang.\n3. Kalender Libur Nasional Otomatis: Admin dapat menyinkronkan hari libur resmi nasional dari API pemerintah secara otomatis.\n4. Tambah Penetapan Hari: Menu kalender hari libur & penetapan hari masuk/libur khusus kalurahan tersedia lengkap di dashboard Admin.\n5. Custom Kop Surat & Format Cetak Lengkap: Menu Format Laporan & Kop terbuka di Super Admin untuk bebas memilih kertas A4/F4, orientasi Portrait/Landscape, logo kop pemda, dan tanda tangan pejabat.\n6. Fitur Backup & Restore Database: Super Admin dapat mengekspor seluruh basis data ke JSON dan merestore kembali kapan saja.\n7. Fitur Ajukan Suket: Pamong dapat mengajukan surat keterangan (Sakit, Izin, Cuti, Tugas Luar) langsung di halaman presensi dan disetujui admin.\n8. Fitur Agenda Kegiatan: Menu penjadwalan agenda rapat dan acara kalurahan aktif di dashboard pamong dan admin.',
+          tips: 'Seluruh fitur di atas terintegrasi mulus tanpa merubah skema dasar data aplikasi.',
+        },
+        {
+          nomor: '04',
+          judul: 'Mereset atau Menghapus Serial Number',
+          deskripsi: 'Jika ingin mengganti lisensi atau mengembalikan ke kapasitas standar, Anda dapat langsung mengklik tombol merah "Hapus Serial Number" yang muncul di samping tombol Kelola Serial Number pada dashboard, atau klik "Reset ke Standar" di dalam modal.',
+          tips: 'Mereset atau menghapus lisensi tidak menghapus data presensi, pegawai, maupun laporan yang sudah tersimpan di database.',
+        },
+      ],
+      ketentuan: [
+        'Serial number diterbitkan khusus per instansi dan diverifikasi melalui algoritma HMAC-SHA256.',
+        'Jika kuota pegawai di versi standar mencapai 50 orang, sistem akan menolak pendaftaran akun baru hingga serial number dimasukkan.',
+        'Format cetak pada versi standar otomatis dikunci pada ukuran F4 Landscape untuk menjaga kepatuhan tata letak dokumen instansi.',
+      ],
+    },
     {
       id: 'identitas',
       category: 'identitas',

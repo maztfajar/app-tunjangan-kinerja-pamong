@@ -343,7 +343,7 @@ export default function RekapAdminPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
         <div>
           <h2 style={{ fontSize: '24px', fontWeight: '800', color: '#0f172a', marginBottom: '6px' }}>
-            Rekap Kedisiplinan Pamong 📋
+            Rekap Kedisiplinan Pamong
           </h2>
           <p style={{ color: '#64748b', fontSize: '13.5px' }}>
             Rekapitulasi keterlambatan, kepulangan cepat, dan pengajuan suket pamong (Real-Time s/d hari ini)

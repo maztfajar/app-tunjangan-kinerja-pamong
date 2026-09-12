@@ -111,7 +111,7 @@ export default function JamKerjaPage() {
     <div>
       <div style={{ marginBottom: '28px' }}>
         <h2 style={{ fontSize: '24px', fontWeight: '800', color: '#0f172a', marginBottom: '8px' }}>
-          Setting Jam Kerja & Toleransi ⏰
+          Setting Jam Kerja & Toleransi
         </h2>
         <p style={{ color: '#64748b', fontSize: '14px' }}>
           Atur jam kerja standar, toleransi keterlambatan, dan batas presensi pamong.

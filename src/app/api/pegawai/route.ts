@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession, hashPassword } from '@/lib/auth';
+import { getLicenseInfo } from '@/lib/license';
 
 export async function GET() {
   try {
@@ -52,6 +53,23 @@ export async function POST(request: Request) {
         { error: 'Username sudah terdaftar' },
         { status: 400 }
       );
+    }
+
+    // Cek batas kuota pegawai (maksimal 50 di versi standar)
+    const license = await getLicenseInfo();
+    if (!license.features.unlimitedUsers) {
+      const currentPegawaiCount = await prisma.user.count({
+        where: { role: 'PEGAWAI' },
+      });
+      const maxLimit = license.maxUsers > 0 ? license.maxUsers : 50;
+      if (currentPegawaiCount >= maxLimit) {
+        return NextResponse.json(
+          {
+            error: `Batas kuota pegawai (${maxLimit} orang) telah tercapai. Hubungi administrator/pengembang untuk meningkatkan kapasitas sistem.`,
+          },
+          { status: 403 }
+        );
+      }
     }
 
     const hashedPassword = await hashPassword(password);

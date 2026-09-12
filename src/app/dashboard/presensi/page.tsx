@@ -312,7 +312,7 @@ export default function PresensiPage() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       <div>
         <h2 style={{ fontSize: '22px', fontWeight: '800', color: '#0f172a', marginBottom: '4px' }}>
-          Presensi GPS Pamong 📌
+          Presensi GPS Pamong
         </h2>
         <p style={{ color: '#64748b', fontSize: '13px' }}>
           Validasi kehadiran masuk & pulang terintegrasi jam kerja dan radius kantor kalurahan
@@ -322,10 +322,22 @@ export default function PresensiPage() {
       {/* Grid Responsif: 1 Kolom di Handphone, 2 Kolom di Desktop */}
       <div className="presensi-grid">
         {/* Peta GPS */}
-        <div className="glass-card-static" style={{ padding: '4px', overflow: 'hidden' }}>
+        <div
+          className="glass-card-static"
+          style={{
+            padding: '4px',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+            height: '100%',
+          }}
+        >
           <div
             style={{
-              height: 'clamp(260px, 38vh, 440px)',
+              flex: 1,
+              width: '100%',
+              height: '100%',
+              minHeight: 'clamp(340px, 45vh, 600px)',
               borderRadius: '12px',
               overflow: 'hidden',
               position: 'relative',

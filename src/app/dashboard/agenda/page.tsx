@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import Link from 'next/link';
+import { IconAlertTriangle } from '@/components/ui/Icons';
 
 interface AgendaItem {
   id: string;
@@ -11,6 +13,7 @@ interface AgendaItem {
 }
 
 export default function AgendaPage() {
+  const [featureAllowed, setFeatureAllowed] = useState<boolean | null>(null);
   const [agenda, setAgenda] = useState<AgendaItem[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({ judul: '', tanggal: '', lokasi: '', catatan: '' });
@@ -20,6 +23,15 @@ export default function AgendaPage() {
     const d = new Date();
     return { year: d.getFullYear(), month: d.getMonth() };
   });
+
+  useEffect(() => {
+    fetch('/api/license/status')
+      .then((res) => res.json())
+      .then((data) => {
+        setFeatureAllowed(Boolean(data?.features?.agenda));
+      })
+      .catch(() => setFeatureAllowed(false));
+  }, []);
 
   const fetchAgenda = useCallback(async () => {
     try {
@@ -115,6 +127,23 @@ export default function AgendaPage() {
         const d = new Date(a.tanggal);
         return d.getMonth() === currentMonth.month && d.getFullYear() === currentMonth.year;
       });
+
+  if (featureAllowed === false) {
+    return (
+      <div style={{ maxWidth: 540, margin: '60px auto', padding: '36px', background: '#fff', borderRadius: 20, border: '1px solid #fed7aa', textAlign: 'center', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
+        <div style={{ width: 60, height: 60, borderRadius: '50%', background: '#fff7ed', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+          <IconAlertTriangle size={30} color="#f97316" />
+        </div>
+        <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#0f172a', marginBottom: '8px' }}>Fitur Khusus Lisensi PRO</h2>
+        <p style={{ fontSize: '14px', color: '#64748b', lineHeight: 1.6, marginBottom: '24px' }}>
+          Menu <b>Agenda Kegiatan</b> adalah fitur ekstensi sistem berlisensi resmi. Silakan hubungi Administrator Kalurahan untuk mengaktifkan lisensi sistem.
+        </p>
+        <Link href="/dashboard" className="btn-primary" style={{ display: 'inline-flex', padding: '10px 22px', fontWeight: 700, textDecoration: 'none', borderRadius: 10 }}>
+          ← Kembali ke Beranda
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>

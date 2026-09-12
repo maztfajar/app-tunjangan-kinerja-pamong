@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
+import Link from 'next/link';
 import { IconTrash, IconAlertTriangle, IconClose } from '@/components/ui/Icons';
 
 interface HariLiburItem {
@@ -73,6 +74,17 @@ export default function HariLiburAdminPage() {
     }
     setLoading(false);
   }, [tahun]);
+
+  const [featureAllowed, setFeatureAllowed] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    fetch('/api/license/status')
+      .then((res) => res.json())
+      .then((data) => {
+        setFeatureAllowed(Boolean(data?.features?.holidayCalendar));
+      })
+      .catch(() => setFeatureAllowed(false));
+  }, []);
 
   useEffect(() => {
     fetchData();
@@ -327,6 +339,23 @@ export default function HariLiburAdminPage() {
       return true;
     });
   }, [items, searchQuery, filterStatus]);
+
+  if (featureAllowed === false) {
+    return (
+      <div style={{ maxWidth: 560, margin: '60px auto', padding: '36px', background: '#fff', borderRadius: 20, border: '1px solid #fed7aa', textAlign: 'center', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
+        <div style={{ width: 60, height: 60, borderRadius: '50%', background: '#fff7ed', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+          <IconAlertTriangle size={30} color="#f97316" />
+        </div>
+        <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#0f172a', marginBottom: '8px' }}>Fitur Khusus Lisensi PRO</h2>
+        <p style={{ fontSize: '14px', color: '#64748b', lineHeight: 1.6, marginBottom: '24px' }}>
+          Menu <b>Kalender Libur Nasional &amp; Penetapan Hari Kerja</b> adalah fitur ekstensi sistem berlisensi resmi. Silakan hubungi Super Administrator untuk mengaktifkan Serial Number instansi.
+        </p>
+        <Link href="/admin" className="btn-primary" style={{ display: 'inline-flex', padding: '10px 22px', fontWeight: 700, textDecoration: 'none', borderRadius: 10 }}>
+          ← Kembali ke Dashboard Admin
+        </Link>
+      </div>
+    );
+  }
 
   // Calendar generation helpers
   const daysInSelectedMonth = new Date(tahun, bulan, 0).getDate();
@@ -1204,7 +1233,7 @@ export default function HariLiburAdminPage() {
                 📅 {formatDateDisplay(deleteModal.tanggal)}
               </div>
               <div style={{ fontSize: '13px', color: '#334155', fontWeight: '600', marginTop: '6px' }}>
-                Keterangan: <span style={{ color: '#4361ee' }}>"{deleteModal.keterangan}"</span>
+                Keterangan: <span style={{ color: '#4361ee' }}>&quot;{deleteModal.keterangan}&quot;</span>
               </div>
               <div style={{ marginTop: '8px' }}>
                 <span

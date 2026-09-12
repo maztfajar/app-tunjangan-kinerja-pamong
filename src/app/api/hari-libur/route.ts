@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
+import { getLicenseInfo } from '@/lib/license';
 
 export async function GET(request: Request) {
   try {
@@ -62,6 +63,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const license = await getLicenseInfo();
+    if (!license.features.holidayCalendar) {
+      return NextResponse.json({ error: 'Fitur Kalender Hari Libur hanya tersedia pada lisensi PRO.' }, { status: 403 });
+    }
+
     const { tanggal, keterangan, sumber, isLibur } = await request.json();
     if (!tanggal || !keterangan) {
       return NextResponse.json({ error: 'Tanggal dan keterangan wajib diisi' }, { status: 400 });
@@ -114,6 +120,11 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const license = await getLicenseInfo();
+    if (!license.features.holidayCalendar) {
+      return NextResponse.json({ error: 'Fitur Kalender Hari Libur hanya tersedia pada lisensi PRO.' }, { status: 403 });
+    }
+
     const { id, isLibur, keterangan } = await request.json();
     if (!id) {
       return NextResponse.json({ error: 'ID diperlukan' }, { status: 400 });
@@ -146,6 +157,11 @@ export async function DELETE(request: Request) {
     const session = await getSession();
     if (!session || session.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const license = await getLicenseInfo();
+    if (!license.features.holidayCalendar) {
+      return NextResponse.json({ error: 'Fitur Kalender Hari Libur hanya tersedia pada lisensi PRO.' }, { status: 403 });
     }
 
     const { searchParams } = new URL(request.url);

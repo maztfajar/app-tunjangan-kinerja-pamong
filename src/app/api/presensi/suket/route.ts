@@ -1,12 +1,18 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
+import { getLicenseInfo } from '@/lib/license';
 
 export async function POST(request: Request) {
   try {
     const session = await getSession();
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const license = await getLicenseInfo();
+    if (!license.features.suket) {
+      return NextResponse.json({ error: 'Fitur Pengajuan Suket hanya tersedia pada lisensi PRO.' }, { status: 403 });
     }
 
     const { tanggal, jenisSuket, keterangan, tipeSuket } = await request.json();

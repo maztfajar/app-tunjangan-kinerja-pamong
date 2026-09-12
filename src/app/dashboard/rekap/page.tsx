@@ -63,6 +63,16 @@ export default function RekapPage() {
   const now = new Date();
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1); // 1-indexed
+  const [isSuketEnabled, setIsSuketEnabled] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/license/status')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.features?.suket) setIsSuketEnabled(true);
+      })
+      .catch(() => {});
+  }, []);
 
   const fetchRekap = useCallback(async () => {
     try {
@@ -162,6 +172,7 @@ export default function RekapPage() {
   // Helper: Mengecek apakah pegawai memenuhi syarat aksi suket:
   // Kondisi: Melebihi jam masuk (terlambat), tidak absen masuk, tidak absen pulang, atau pulang mendahului
   const getSuketActionState = (day: Date, p: PresensiItem | null, isOffDay: boolean | null) => {
+    if (!isSuketEnabled) return null;
     if (isOffDay) return null;
 
     const today = isToday(day);

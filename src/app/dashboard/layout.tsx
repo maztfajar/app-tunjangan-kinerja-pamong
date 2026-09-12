@@ -21,8 +21,6 @@ import {
   IconFingerprint,
 } from '@/components/ui/Icons';
 
-// Urutan menu berlaku di website (sidebar) dan smartphone (bottom nav):
-// 1. Beranda, 2. Presensi, 3. Aktivitas, 4. Laporan Kinerja, 5. Rekapan Absensi, 6. Log Aktivitas, 7. Agenda Kegiatan
 const menuItems = [
   { href: '/dashboard', label: 'Beranda', icon: IconHome },
   { href: '/dashboard/presensi', label: 'Presensi', icon: IconMapPin },
@@ -31,6 +29,7 @@ const menuItems = [
   { href: '/dashboard/rekap', label: 'Rekapan Absensi', icon: IconBarChart },
   { href: '/dashboard/task', label: 'Log Aktivitas', icon: IconClipboardCheck },
   { href: '/dashboard/agenda', label: 'Agenda Kegiatan', icon: IconCalendar },
+  { href: '/dashboard/biometrik', label: 'Kunci Biometrik', icon: IconFingerprint },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -55,6 +54,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [biometricActionLoading, setBiometricActionLoading] = useState(false);
   const [biometricFeedback, setBiometricFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [showBiometricPrompt, setShowBiometricPrompt] = useState(true);
+  const [licenseFeatures, setLicenseFeatures] = useState<{ agenda?: boolean; biometrics?: boolean; suket?: boolean } | null>(null);
+
+  useEffect(() => {
+    fetch('/api/license/status')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.features) setLicenseFeatures(data.features);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -64,16 +73,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         window.innerWidth <= 768;
       setIsMobile(mobileCheck);
 
-      if (mobileCheck && window.PublicKeyCredential) {
+      if (mobileCheck && window.PublicKeyCredential && licenseFeatures?.biometrics) {
         window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
           .then((available) => setSupportsBiometric(available))
           .catch(() => setSupportsBiometric(false));
+      } else {
+        setSupportsBiometric(false);
       }
     }
-  }, []);
+  }, [licenseFeatures?.biometrics]);
 
   useEffect(() => {
-    if (isMobile) {
+    if (isMobile && licenseFeatures?.biometrics) {
       fetch('/api/auth/biometric/check')
         .then((res) => res.json())
         .then((data) => {
@@ -85,7 +96,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         })
         .catch(() => {});
     }
-  }, [profileOpen, isMobile]);
+  }, [profileOpen, isMobile, licenseFeatures?.biometrics]);
 
   // ── Session Guard: Refresh token saat tab kembali aktif setelah idle ──────
   useEffect(() => {
@@ -361,9 +372,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
 
         {/* Menu Navigation */}
-        <nav style={{ flex: 1, overflowY: 'auto' }}>
+        <nav style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-            {menuItems.map((item) => {
+            {menuItems
+              .filter((item) => {
+                if (item.href === '/dashboard/agenda' && !licenseFeatures?.agenda) {
+                  return false;
+                }
+                if (item.href === '/dashboard/biometrik' && !licenseFeatures?.biometrics) {
+                  return false;
+                }
+                return true;
+              })
+              .map((item) => {
               const IconComponent = item.icon;
               const isActive = pathname === item.href;
               return (
@@ -372,45 +393,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   href={item.href}
                   className={`sidebar-link ${isActive ? 'active' : ''}`}
                   data-tooltip={item.label}
+                  onClick={() => setSidebarOpen(false)}
                 >
                   <IconComponent size={18} color={isActive ? '#4361ee' : '#64748b'} />
                   <span style={{ flex: 1 }}>{item.label}</span>
                 </Link>
               );
             })}
-            {isMobile && (
-              <button
-                type="button"
-                onClick={() => {
-                  setSidebarOpen(false);
-                  if (hasBiometricRegistered) {
-                    handleRemoveBiometric();
-                  } else {
-                    setProfileOpen(true);
-                  }
-                }}
-                className="sidebar-link"
-                style={{
-                  width: '100%',
-                  textAlign: 'left',
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  color: hasBiometricRegistered ? '#c2410c' : '#2563eb',
-                  fontFamily: 'inherit',
-                  padding: '9px 12px',
-                  borderRadius: '8px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  fontSize: '13px',
-                  fontWeight: '600',
-                }}
-              >
-                <IconFingerprint size={18} color={hasBiometricRegistered ? '#ea580c' : '#2563eb'} />
-                <span>{hasBiometricRegistered ? 'Hapus Biometrik' : 'Kunci Biometrik'}</span>
-              </button>
-            )}
           </div>
         </nav>
 
@@ -465,8 +454,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         </div>
 
-        {/* Footer Logout */}
-        <div style={{ paddingTop: '8px', borderTop: '1px solid #eaedf2' }}>
+        {/* Footer Logout (Dengan safe-area padding ekstra agar tidak tertutup Google Chrome mobile) */}
+        <div
+          style={{
+            paddingTop: '10px',
+            paddingBottom: 'calc(24px + env(safe-area-inset-bottom, 14px))',
+            borderTop: '1px solid #eaedf2',
+            marginTop: 'auto',
+            flexShrink: 0,
+          }}
+        >
           <button
             onClick={handleLogout}
             className="sidebar-link"
@@ -589,7 +586,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* Page Content Container */}
         <div className="app-content animate-fade-in">
           {/* Banner Ajakan Registrasi Biometrik Pertama Kali di Ponsel */}
-          {isMobile && !hasBiometricRegistered && showBiometricPrompt && (
+          {isMobile && !hasBiometricRegistered && showBiometricPrompt && licenseFeatures?.biometrics && (
             <div
               style={{
                 marginBottom: '16px',
@@ -673,7 +670,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           BOTTOM NAVIGATION BAR (Lengkap Sesuai Urutan Menu + Hapus Biometrik di Bawah Sendiri)
           ========================================================= */}
       <nav ref={bottomNavRef} className="bottom-nav" aria-label="Navigasi bawah mobile">
-        {menuItems.map((item) => {
+        {menuItems
+          .filter((item) => {
+            if (item.href === '/dashboard/agenda' && !licenseFeatures?.agenda) {
+              return false;
+            }
+            return true;
+          })
+          .map((item) => {
           const IconComponent = item.icon;
           const isActive = pathname === item.href;
           return (
@@ -688,31 +692,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           );
         })}
 
-        {/* Menu Hapus Biometrik di Bagian Bawah Sendiri (Rightmost Bottom Item) */}
-        {isMobile && (
-          <button
-            type="button"
-            onClick={() => {
-              if (hasBiometricRegistered) {
-                handleRemoveBiometric();
-              } else {
-                setProfileOpen(true);
-              }
-            }}
-            className="bottom-nav-item"
+        {/* Menu Kunci Biometrik di Bagian Bawah Sendiri (Rightmost Bottom Item) */}
+        {isMobile && licenseFeatures?.biometrics && (
+          <Link
+            href="/dashboard/biometrik"
+            className={`bottom-nav-item ${pathname === '/dashboard/biometrik' ? 'active' : ''}`}
             style={{
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-              color: hasBiometricRegistered ? '#c2410c' : '#2563eb',
+              textDecoration: 'none',
+              color: pathname === '/dashboard/biometrik' ? '#4361ee' : hasBiometricRegistered ? '#16a34a' : '#64748b',
             }}
-            title={hasBiometricRegistered ? 'Hapus Kunci Biometrik Ponsel' : 'Daftarkan Kunci Biometrik'}
+            title="Kunci Biometrik"
           >
-            <IconFingerprint size={24} color={hasBiometricRegistered ? '#ea580c' : '#2563eb'} />
-            <span style={{ color: hasBiometricRegistered ? '#c2410c' : '#2563eb', fontWeight: '700' }}>
-              {hasBiometricRegistered ? 'Hapus Biometrik' : 'Biometrik'}
-            </span>
-          </button>
+            <IconFingerprint size={24} color={pathname === '/dashboard/biometrik' ? '#4361ee' : hasBiometricRegistered ? '#16a34a' : '#64748b'} />
+            <span style={{ fontWeight: '700' }}>Biometrik</span>
+          </Link>
         )}
       </nav>
 
@@ -828,32 +821,34 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <IconFileText size={18} color={pathname === '/dashboard/laporan' ? '#4361ee' : '#64748b'} />
                 <span style={{ flex: 1 }}>Laporan Kinerja Bulanan</span>
               </Link>
-              <Link
-                href="/dashboard/agenda"
-                prefetch={false}
-                onClick={() => setProfileOpen(false)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  padding: '11px 14px',
-                  borderRadius: '10px',
-                  background: pathname === '/dashboard/agenda' ? '#eff6ff' : '#f8fafc',
-                  border: pathname === '/dashboard/agenda' ? '1px solid #bfdbfe' : '1px solid #e2e8f0',
-                  color: pathname === '/dashboard/agenda' ? '#4361ee' : '#334155',
-                  textDecoration: 'none',
-                  fontSize: '13px',
-                  fontWeight: '600',
-                  touchAction: 'manipulation',
-                }}
-              >
-                <IconCalendar size={18} color={pathname === '/dashboard/agenda' ? '#4361ee' : '#64748b'} />
-                <span style={{ flex: 1 }}>Agenda Kegiatan Kalurahan</span>
-              </Link>
+              {licenseFeatures?.agenda && (
+                <Link
+                  href="/dashboard/agenda"
+                  prefetch={false}
+                  onClick={() => setProfileOpen(false)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    padding: '11px 14px',
+                    borderRadius: '10px',
+                    background: pathname === '/dashboard/agenda' ? '#eff6ff' : '#f8fafc',
+                    border: pathname === '/dashboard/agenda' ? '1px solid #bfdbfe' : '1px solid #e2e8f0',
+                    color: pathname === '/dashboard/agenda' ? '#4361ee' : '#334155',
+                    textDecoration: 'none',
+                    fontSize: '13px',
+                    fontWeight: '600',
+                    touchAction: 'manipulation',
+                  }}
+                >
+                  <IconCalendar size={18} color={pathname === '/dashboard/agenda' ? '#4361ee' : '#64748b'} />
+                  <span style={{ flex: 1 }}>Agenda Kegiatan Kalurahan</span>
+                </Link>
+              )}
             </div>
 
             {/* Menu Biometrik Ponsel (Hanya smartphone, tidak muncul di PC/Laptop) */}
-            {isMobile && (
+            {isMobile && licenseFeatures?.biometrics && (
               <div
                 style={{
                   marginBottom: '16px',

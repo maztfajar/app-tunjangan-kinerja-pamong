@@ -7,6 +7,7 @@ import {
   IconTrash,
   IconAlertTriangle,
   IconClose,
+  IconEdit,
 } from '@/components/ui/Icons';
 
 interface MasterItem {
@@ -39,6 +40,16 @@ export default function AdminJabatanPage() {
     totalPegawai: number;
   } | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Modal Edit
+  const [editModal, setEditModal] = useState<{
+    isOpen: boolean;
+    type: 'jabatan' | 'unitKerja';
+    id: string;
+    nama: string;
+    kategori: string;
+  } | null>(null);
+  const [editing, setEditing] = useState(false);
 
   // Notifikasi Toast
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -123,6 +134,38 @@ export default function AdminJabatanPage() {
     setDeleting(false);
   };
 
+  // Handler Edit Kategori / Jabatan
+  const handleConfirmEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editModal || !editModal.nama.trim()) return;
+
+    setEditing(true);
+    try {
+      const res = await fetch('/api/admin/jabatan', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editModal.id,
+          type: editModal.type,
+          nama: editModal.nama.trim(),
+          kategori: editModal.kategori.trim(),
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast(data.message, 'success');
+        setEditModal(null);
+        await fetchData();
+      } else {
+        showToast(data.error || 'Gagal memperbarui data', 'error');
+      }
+    } catch {
+      showToast('Terjadi kesalahan koneksi', 'error');
+    }
+    setEditing(false);
+  };
+
   // Filter list
   const currentList = activeTab === 'jabatan' ? jabatanList : unitKerjaList;
   const filteredList = useMemo(() => {
@@ -149,7 +192,7 @@ export default function AdminJabatanPage() {
       >
         <div>
           <h2 style={{ fontSize: '24px', fontWeight: '800', color: '#0f172a', marginBottom: '6px' }}>
-            Kelola Jabatan & Unit Kerja 📁
+            Kelola Jabatan & Unit Kerja
           </h2>
           <p style={{ color: '#64748b', fontSize: '14px' }}>
             Atur master kategori jabatan pamong dan unit kerja kalurahan untuk memudahkan pemilihan dropdown saat pendaftaran pegawai.
@@ -342,33 +385,62 @@ export default function AdminJabatanPage() {
                       </span>
                     </td>
                     <td style={{ textAlign: 'center' }}>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setDeleteModal({
-                            isOpen: true,
-                            type: activeTab,
-                            id: item.id,
-                            nama: item.nama,
-                            totalPegawai: item.totalPegawai,
-                          })
-                        }
-                        className="btn-outline"
-                        style={{
-                          padding: '6px 10px',
-                          fontSize: '11px',
-                          color: '#dc2626',
-                          borderColor: '#fecaca',
-                          background: '#fff',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                        }}
-                        title={`Hapus ${item.nama}`}
-                      >
-                        <IconTrash size={13} color="#dc2626" />
-                        <span>Hapus</span>
-                      </button>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setEditModal({
+                              isOpen: true,
+                              type: activeTab,
+                              id: item.id,
+                              nama: item.nama,
+                              kategori: item.kategori || '',
+                            })
+                          }
+                          className="btn-outline"
+                          style={{
+                            padding: '6px 10px',
+                            fontSize: '11px',
+                            color: '#2563eb',
+                            borderColor: '#bfdbfe',
+                            background: '#fff',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                          }}
+                          title={`Edit ${item.nama}`}
+                        >
+                          <IconEdit size={13} color="#2563eb" />
+                          <span>Edit</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setDeleteModal({
+                              isOpen: true,
+                              type: activeTab,
+                              id: item.id,
+                              nama: item.nama,
+                              totalPegawai: item.totalPegawai,
+                            })
+                          }
+                          className="btn-outline"
+                          style={{
+                            padding: '6px 10px',
+                            fontSize: '11px',
+                            color: '#dc2626',
+                            borderColor: '#fecaca',
+                            background: '#fff',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                          }}
+                          title={`Hapus ${item.nama}`}
+                        >
+                          <IconTrash size={13} color="#dc2626" />
+                          <span>Hapus</span>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -470,6 +542,105 @@ export default function AdminJabatanPage() {
                   style={{ flex: 1.2, padding: '10px', justifyContent: 'center' }}
                 >
                   {adding ? 'Menyimpan...' : '💾 Simpan Opsi'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Edit Kategori / Jabatan */}
+      {editModal && editModal.isOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.6)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '16px',
+          }}
+          onClick={() => !editing && setEditModal(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: '#ffffff',
+              borderRadius: '16px',
+              padding: '24px',
+              maxWidth: '460px',
+              width: '100%',
+              boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <IconEdit size={20} color="#2563eb" />
+                <h3 style={{ fontSize: '17px', fontWeight: '800', color: '#0f172a' }}>
+                  Edit {editModal.type === 'jabatan' ? 'Jabatan' : 'Unit Kerja'}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => !editing && setEditModal(null)}
+                style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '4px' }}
+              >
+                <IconClose size={18} color="#94a3b8" />
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmEdit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label className="input-label">
+                  Nama {editModal.type === 'jabatan' ? 'Jabatan' : 'Unit Kerja'} *
+                </label>
+                <input
+                  type="text"
+                  required
+                  autoFocus
+                  placeholder={editModal.type === 'jabatan' ? 'Contoh: Kaur Keuangan' : 'Contoh: Seksi Kesejahteraan'}
+                  className="input-field"
+                  value={editModal.nama}
+                  onChange={(e) => setEditModal({ ...editModal, nama: e.target.value })}
+                  style={{ background: '#ffffff', color: '#0f172a' }}
+                />
+              </div>
+
+              <div>
+                <label className="input-label">Kelompok / Kategori</label>
+                <input
+                  type="text"
+                  placeholder={editModal.type === 'jabatan' ? 'Contoh: Pamong, Pimpinan, Staf' : 'Contoh: Kalurahan, Padukuhan'}
+                  className="input-field"
+                  value={editModal.kategori}
+                  onChange={(e) => setEditModal({ ...editModal, kategori: e.target.value })}
+                  style={{ background: '#ffffff', color: '#0f172a' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>
+                <button
+                  type="button"
+                  disabled={editing}
+                  onClick={() => setEditModal(null)}
+                  className="btn-outline"
+                  style={{ flex: 1, padding: '10px', justifyContent: 'center' }}
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={editing || !editModal.nama.trim()}
+                  className="btn-primary"
+                  style={{ flex: 1.2, padding: '10px', justifyContent: 'center' }}
+                >
+                  {editing ? 'Menyimpan...' : '💾 Simpan Perubahan'}
                 </button>
               </div>
             </form>

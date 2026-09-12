@@ -145,7 +145,7 @@ export default function SuperAdminAdminsPage() {
           </div>
           <div>
             <h2 style={{ fontSize: '22px', fontWeight: '800', color: '#0f172a' }}>
-              Manajemen Pengguna Administrator (Level 2)
+              Manajemen Pengguna Administrator
             </h2>
             <p style={{ fontSize: '14px', color: '#64748b', marginTop: '3px' }}>
               Hanya Super Admin yang memiliki wewenang untuk membuat atau menghapus akun Administrator operasional.

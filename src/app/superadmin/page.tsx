@@ -13,6 +13,8 @@ import {
   IconClock,
   IconCheckCircle,
   IconInfo,
+  IconShield,
+  IconClose,
 } from '@/components/ui/Icons';
 
 interface StatsData {
@@ -38,6 +40,34 @@ export default function SuperAdminDashboard() {
   const [settings, setSettings] = useState<{ namaApp: string; namaKantor: string; subJudul: string } | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // State Lisensi & Serial Number
+  const [licenseData, setLicenseData] = useState<{
+    isPro: boolean;
+    tier: string;
+    clientName?: string;
+    serialNumber?: string;
+    maxUsers: number;
+    features: Record<string, boolean>;
+    expiresAt?: string | null;
+    daysRemaining?: number | null;
+    allowedDomains?: string[];
+  } | null>(null);
+
+  const [showSerialModal, setShowSerialModal] = useState(false);
+  const [serialInput, setSerialInput] = useState('');
+  const [serialLoading, setSerialLoading] = useState(false);
+  const [serialMsg, setSerialMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const fetchLicense = async () => {
+    try {
+      const res = await fetch('/api/superadmin/license');
+      const data = await res.json();
+      if (data.license) setLicenseData(data.license);
+    } catch (err) {
+      console.error('Error fetching license:', err);
+    }
+  };
+
   const fetchStats = async () => {
     try {
       const res = await fetch('/api/superadmin/stats');
@@ -52,7 +82,53 @@ export default function SuperAdminDashboard() {
 
   useEffect(() => {
     fetchStats();
+    fetchLicense();
   }, []);
+
+  const handleSaveSerial = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!serialInput.trim()) {
+      setSerialMsg({ type: 'error', text: 'Serial Number wajib diisi.' });
+      return;
+    }
+    setSerialLoading(true);
+    setSerialMsg(null);
+    try {
+      const res = await fetch('/api/superadmin/license', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ serialNumber: serialInput.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setSerialMsg({ type: 'error', text: data.error || 'Serial Number tidak valid.' });
+      } else {
+        setSerialMsg({ type: 'success', text: data.message || 'Serial Number berhasil diaktifkan!' });
+        await fetchLicense();
+        setTimeout(() => {
+          setShowSerialModal(false);
+          setSerialMsg(null);
+        }, 1200);
+      }
+    } catch {
+      setSerialMsg({ type: 'error', text: 'Terjadi kesalahan server.' });
+    }
+    setSerialLoading(false);
+  };
+
+  const handleResetSerial = async () => {
+    if (!confirm('Kembalikan sistem ke mode standar?')) return;
+    setSerialLoading(true);
+    try {
+      const res = await fetch('/api/superadmin/license', { method: 'DELETE' });
+      if (res.ok) {
+        setSerialInput('');
+        await fetchLicense();
+        setShowSerialModal(false);
+      }
+    } catch {}
+    setSerialLoading(false);
+  };
 
   const statCards = [
     {
@@ -340,44 +416,46 @@ export default function SuperAdminDashboard() {
           </Link>
         </div>
 
-        {/* Card 3: Reset & Pembersihan Database */}
-        {/* Card 3: Backup & Restory Database */}
-        <div
-          className="glass-card-static animate-slide-up"
-          style={{
-            padding: '26px',
-            background: '#ffffff',
-            border: '1px solid #e2e8f0',
-            borderRadius: '16px',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            gap: '18px',
-            boxShadow: '0 2px 6px rgba(0,0,0,0.02)',
-          }}
-        >
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
-              <div style={{ padding: '10px', borderRadius: '10px', background: '#ecf8ff' }}>
-                <IconDatabase size={22} color="#0369a1" />
-              </div>
-              <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>
-                3. Backup &amp; Restory Database
-              </h3>
-            </div>
-            <p style={{ fontSize: '14px', color: '#475569', lineHeight: '1.65' }}>
-              Unduh seluruh data aplikasi dalam format JSON yang dapat digunakan untuk restore aman. Gunakan halaman ini untuk menyimpan salinan data atau mengembalikan data dari file JSON yang valid.
-            </p>
-          </div>
-          <Link
-            href="/superadmin/database"
-            className="btn-outline"
-            style={{ alignSelf: 'flex-start', fontSize: '13px', fontWeight: '700', padding: '10px 18px', gap: '6px' }}
+        {/* Card: Backup & Restory Database (Hanya tampil jika fitur aktif) */}
+        {licenseData?.features?.backupRestore && (
+          <div
+            className="glass-card-static animate-slide-up"
+            style={{
+              padding: '26px',
+              background: '#ffffff',
+              border: '1px solid #e2e8f0',
+              borderRadius: '16px',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              gap: '18px',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.02)',
+            }}
           >
-            Kelola Backup/Restore →
-          </Link>
-        </div>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
+                <div style={{ padding: '10px', borderRadius: '10px', background: '#ecf8ff' }}>
+                  <IconDatabase size={22} color="#0369a1" />
+                </div>
+                <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>
+                  3. Backup &amp; Restory Database
+                </h3>
+              </div>
+              <p style={{ fontSize: '14px', color: '#475569', lineHeight: '1.65' }}>
+                Unduh seluruh data aplikasi dalam format JSON yang dapat digunakan untuk restore aman. Gunakan halaman ini untuk menyimpan salinan data atau mengembalikan data dari file JSON yang valid.
+              </p>
+            </div>
+            <Link
+              href="/superadmin/database"
+              className="btn-outline"
+              style={{ alignSelf: 'flex-start', fontSize: '13px', fontWeight: '700', padding: '10px 18px', gap: '6px' }}
+            >
+              Kelola Backup/Restore →
+            </Link>
+          </div>
+        )}
 
+        {/* Card: Reset & Pembersihan Database */}
         <div
           className="glass-card-static animate-slide-up"
           style={{
@@ -398,7 +476,7 @@ export default function SuperAdminDashboard() {
                 <IconDatabase size={22} color="#ef4444" />
               </div>
               <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>
-                3. Reset &amp; Pembersihan Database
+                {licenseData?.features?.backupRestore ? '4.' : '3.'} Reset &amp; Pembersihan Database
               </h3>
             </div>
             <p style={{ fontSize: '14px', color: '#475569', lineHeight: '1.65' }}>
@@ -414,7 +492,83 @@ export default function SuperAdminDashboard() {
           </Link>
         </div>
 
-        {/* Card 4: Buku Panduan Super Admin */}
+        {/* Card: Serial Number (Tepat di bawah Reset & Pembersihan Database) */}
+        <div
+          className="glass-card-static animate-slide-up"
+          style={{
+            padding: '26px',
+            background: '#ffffff',
+            border: '1px solid #e2e8f0',
+            borderRadius: '16px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            gap: '18px',
+            boxShadow: '0 2px 6px rgba(0,0,0,0.02)',
+          }}
+        >
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
+              <div style={{ padding: '10px', borderRadius: '10px', background: licenseData?.isPro ? '#ecfdf5' : '#f8fafc', border: '1px solid #e2e8f0' }}>
+                <IconShield size={22} color={licenseData?.isPro ? '#10b981' : '#64748b'} />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+                  Serial Number
+                </h3>
+                <span style={{ fontSize: '12px', fontWeight: '600', color: licenseData?.isPro ? '#059669' : '#64748b' }}>
+                  {licenseData?.isPro
+                    ? `● Status: Terverifikasi ${licenseData?.daysRemaining !== undefined && licenseData?.daysRemaining !== null ? `(Sisa ${licenseData.daysRemaining} hari)` : '(Permanen)'}`
+                    : '● Status: Standar'}
+                </span>
+              </div>
+            </div>
+            <p style={{ fontSize: '14px', color: '#475569', lineHeight: '1.65' }}>
+              Kelola status aktivasi dan ekstensi sistem aplikasi. Masukkan serial number resmi untuk membuka kapasitas pengguna dan konfigurasi lanjutan instansi.
+            </p>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', alignSelf: 'flex-start' }}>
+            <button
+              type="button"
+              onClick={() => {
+                setShowSerialModal(true);
+                setSerialInput(licenseData?.serialNumber || '');
+                setSerialMsg(null);
+              }}
+              className="btn-outline"
+              style={{ fontSize: '13px', fontWeight: '700', padding: '10px 18px', gap: '6px', cursor: 'pointer' }}
+            >
+              {licenseData?.isPro ? 'Kelola Serial Number →' : 'Masukkan Serial Number →'}
+            </button>
+
+            {licenseData?.serialNumber && (
+              <button
+                type="button"
+                onClick={handleResetSerial}
+                disabled={serialLoading}
+                className="btn-outline"
+                style={{
+                  fontSize: '13px',
+                  fontWeight: '700',
+                  padding: '10px 16px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  cursor: 'pointer',
+                  color: '#dc2626',
+                  borderColor: '#fca5a5',
+                  background: '#fef2f2',
+                }}
+                title="Hapus serial number dan kembalikan sistem ke mode standar"
+              >
+                <IconTrash size={15} color="#dc2626" />
+                <span>{serialLoading ? 'Menghapus...' : 'Hapus Serial Number'}</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Card: Buku Panduan Super Admin */}
         <div
           className="glass-card-static animate-slide-up"
           style={{
@@ -435,7 +589,7 @@ export default function SuperAdminDashboard() {
                 <IconInfo size={22} color="#0089d7" />
               </div>
               <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>
-                4. Buku Panduan Super Admin
+                Buku Panduan Super Admin
               </h3>
             </div>
             <p style={{ fontSize: '14px', color: '#475569', lineHeight: '1.65' }}>
@@ -451,6 +605,177 @@ export default function SuperAdminDashboard() {
           </Link>
         </div>
       </div>
+
+      {/* Modal Aktivasi Serial Number */}
+      {showSerialModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '20px',
+          }}
+        >
+          <div
+            className="glass-card animate-scale-up"
+            style={{
+              width: '100%',
+              maxWidth: '540px',
+              background: '#ffffff',
+              borderRadius: '20px',
+              padding: '28px',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.2)',
+              border: '1px solid #e2e8f0',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ padding: '8px', borderRadius: '10px', background: licenseData?.isPro ? '#ecfdf5' : '#eff6ff' }}>
+                  <IconShield size={20} color={licenseData?.isPro ? '#10b981' : '#4361ee'} />
+                </div>
+                <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+                  Aktivasi Serial Number
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSerialModal(false)}
+                style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: '4px' }}
+              >
+                <IconClose size={20} />
+              </button>
+            </div>
+
+            {/* Status box */}
+            <div
+              style={{
+                padding: '14px 16px',
+                borderRadius: '12px',
+                background: licenseData?.isPro ? '#f0fdf4' : '#f8fafc',
+                border: `1px solid ${licenseData?.isPro ? '#bbf7d0' : '#e2e8f0'}`,
+                marginBottom: '18px',
+              }}
+            >
+              <div style={{ fontSize: '13px', fontWeight: '700', color: licenseData?.isPro ? '#166534' : '#334155', marginBottom: '4px' }}>
+                {licenseData?.isPro ? '✓ Sistem Terdaftar & Terverifikasi' : 'Mode Sistem Standar'}
+              </div>
+              <div style={{ fontSize: '12px', color: '#64748b', lineHeight: '1.5' }}>
+                {licenseData?.isPro ? (
+                  <>
+                    Instansi: <b>{licenseData.clientName || 'Instansi Terdaftar'}</b>
+                    <br />
+                    Kapasitas: <b>Tanpa Batas Kuota Pegawai</b>
+                    {licenseData.expiresAt && (
+                      <>
+                        <br />
+                        Masa Berlaku: <b>Sampai {licenseData.expiresAt} {licenseData.daysRemaining !== null && licenseData.daysRemaining !== undefined ? `(Sisa ${licenseData.daysRemaining} hari lagi)` : ''}</b>
+                      </>
+                    )}
+                    {licenseData.allowedDomains && licenseData.allowedDomains.length > 0 && (
+                      <>
+                        <br />
+                        Kunci Domain: <b>{licenseData.allowedDomains.join(', ')}</b>
+                      </>
+                    )}
+                  </>
+                ) : (
+                  'Aplikasi berjalan dalam mode kapasitas standar (maksimal 50 pegawai, format cetak F4 Landscape). Masukkan serial number resmi untuk membuka kapasitas dan ekstensi sistem.'
+                )}
+              </div>
+            </div>
+
+            {serialMsg && (
+              <div
+                style={{
+                  padding: '10px 14px',
+                  borderRadius: '10px',
+                  fontSize: '13px',
+                  fontWeight: '600',
+                  marginBottom: '14px',
+                  background: serialMsg.type === 'success' ? '#ecfdf5' : '#fef2f2',
+                  color: serialMsg.type === 'success' ? '#065f46' : '#991b1b',
+                  border: `1px solid ${serialMsg.type === 'success' ? '#a7f3d0' : '#fecaca'}`,
+                }}
+              >
+                {serialMsg.text}
+              </div>
+            )}
+
+            <form onSubmit={handleSaveSerial}>
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+                  Kunci Serial Number
+                </label>
+                <textarea
+                  rows={3}
+                  value={serialInput}
+                  onChange={(e) => setSerialInput(e.target.value)}
+                  placeholder="Contoh: TKP-PRO-XXXX-XXXX-XXXX-XXXX"
+                  style={{
+                    width: '100%',
+                    padding: '12px 14px',
+                    borderRadius: '10px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '13px',
+                    fontFamily: 'monospace',
+                    color: '#0f172a',
+                    background: '#f8fafc',
+                    resize: 'none',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', marginTop: '20px' }}>
+                {licenseData?.isPro ? (
+                  <button
+                    type="button"
+                    onClick={handleResetSerial}
+                    disabled={serialLoading}
+                    style={{
+                      padding: '10px 14px',
+                      borderRadius: '10px',
+                      background: '#fff',
+                      border: '1px solid #fca5a5',
+                      color: '#dc2626',
+                      fontSize: '12px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Reset ke Standar
+                  </button>
+                ) : <span />}
+
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowSerialModal(false)}
+                    className="btn-outline"
+                    style={{ padding: '10px 16px', fontSize: '13px', fontWeight: '600' }}
+                  >
+                    Tutup
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={serialLoading}
+                    className="btn-primary"
+                    style={{ padding: '10px 18px', fontSize: '13px', fontWeight: '700' }}
+                  >
+                    {serialLoading ? 'Memproses...' : 'Simpan & Verifikasi'}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

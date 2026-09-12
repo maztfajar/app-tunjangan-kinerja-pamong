@@ -31,6 +31,7 @@ const adminMenuItems = [
   { href: '/admin/rekap-laporan', label: 'Rekap Laporan', icon: IconFileText },
   { href: '/admin/jam-kerja', label: 'Jam Kerja', icon: IconClock },
   { href: '/admin/hari-libur', label: 'Hari Libur', icon: IconCalendar },
+  { href: '/admin/biometrik', label: 'Kunci Biometrik', icon: IconFingerprint },
   { href: '/admin/panduan', label: 'Buku Panduan Admin', icon: IconBook },
 ];
 
@@ -56,18 +57,30 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [biometricActionLoading, setBiometricActionLoading] = useState(false);
   const [biometricFeedback, setBiometricFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [pendingSuketCount, setPendingSuketCount] = useState(0);
+  const [licenseFeatures, setLicenseFeatures] = useState<{ holidayCalendar?: boolean; suket?: boolean; biometrics?: boolean } | null>(null);
 
-  // Ambil jumlah pengajuan suket yang menunggu tindakan
   useEffect(() => {
-    fetch('/api/admin/suket')
+    fetch('/api/license/status')
       .then((res) => res.json())
       .then((data) => {
-        if (data.pendingCount !== undefined) {
-          setPendingSuketCount(data.pendingCount);
-        }
+        if (data?.features) setLicenseFeatures(data.features);
       })
       .catch(() => {});
-  }, [pathname]);
+  }, []);
+
+  // Ambil jumlah pengajuan suket yang menunggu tindakan (hanya jika fitur suket aktif)
+  useEffect(() => {
+    if (licenseFeatures?.suket) {
+      fetch('/api/admin/suket')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.pendingCount !== undefined) {
+            setPendingSuketCount(data.pendingCount);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [pathname, licenseFeatures?.suket]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -285,9 +298,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
 
         {/* Navigation */}
-        <nav style={{ flex: 1, overflowY: 'auto' }}>
+        <nav style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-            {adminMenuItems.map((item) => {
+            {adminMenuItems
+              .filter((item) => {
+                if (item.href === '/admin/hari-libur' && !licenseFeatures?.holidayCalendar) {
+                  return false;
+                }
+                if (item.href === '/admin/biometrik' && !licenseFeatures?.biometrics) {
+                  return false;
+                }
+                return true;
+              })
+              .map((item) => {
               const IconComponent = item.icon;
               const isActive = pathname === item.href;
               const isRekap = item.href === '/admin/rekap';
@@ -298,6 +321,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   prefetch={false}
                   className={`sidebar-link ${isActive ? 'active' : ''}`}
                   data-tooltip={item.label}
+                  onClick={() => setSidebarOpen(false)}
                 >
                   <IconComponent size={18} color={isActive ? '#4361ee' : '#64748b'} />
                   <span style={{ flex: 1 }}>{item.label}</span>
@@ -322,37 +346,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
         </nav>
 
-        {/* Footer Hapus Biometrik (Khusus Mobile di Sidebar Bawah Sendiri) */}
-        {isMobile && (
-          <div style={{ padding: '0 8px 8px 8px' }}>
-            <button
-              onClick={() => {
-                setSidebarOpen(false);
-                handleRemoveBiometric();
-              }}
-              className="sidebar-link"
-              style={{
-                width: '100%',
-                border: '1px solid #fed7aa',
-                background: '#fff7ed',
-                cursor: 'pointer',
-                color: '#c2410c',
-                fontFamily: 'inherit',
-                justifyContent: 'center',
-                fontWeight: '600',
-                gap: '8px',
-                fontSize: '12px',
-                touchAction: 'manipulation',
-              }}
-            >
-              <IconFingerprint size={16} color="#c2410c" />
-              <span className="sidebar-logout-text">Hapus Kunci Biometrik</span>
-            </button>
-          </div>
-        )}
-
-        {/* Footer Logout */}
-        <div style={{ paddingTop: '10px', borderTop: '1px solid #eaedf2' }}>
+        {/* Footer Logout (Dengan safe-area padding ekstra agar tidak tertutup Google Chrome mobile) */}
+        <div
+          style={{
+            paddingTop: '10px',
+            paddingBottom: 'calc(24px + env(safe-area-inset-bottom, 14px))',
+            borderTop: '1px solid #eaedf2',
+            marginTop: 'auto',
+            flexShrink: 0,
+          }}
+        >
           <button
             onClick={handleLogout}
             className="sidebar-link"
@@ -367,6 +370,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               justifyContent: 'center',
               fontWeight: '600',
               gap: '8px',
+              touchAction: 'manipulation',
             }}
           >
             <IconLogout size={16} color="#ef4444" />
@@ -577,8 +581,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               </Link>
             </div>
 
-            {/* Menu Biometrik Ponsel (Hanya smartphone) */}
-            {isMobile && (
+            {/* Menu Biometrik Ponsel (Hanya smartphone & jika fitur aktif) */}
+            {isMobile && licenseFeatures?.biometrics && (
               <div
                 style={{
                   marginBottom: '16px',

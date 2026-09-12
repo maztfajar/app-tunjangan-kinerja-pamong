@@ -11,16 +11,21 @@ export async function GET(req: NextRequest) {
   try {
     const challenge = generateWebAuthnChallenge();
     const host = req.headers.get('x-forwarded-host') || req.headers.get('host') || 'localhost';
-    const domain = host.split(':')[0];
+    const cleanHost = host.split(':')[0].trim().toLowerCase();
+    const isIp = /^(\d{1,3}\.){3}\d{1,3}$/.test(cleanHost) || cleanHost.includes(':');
+
+    const optionsPayload: { challenge: string; rpId?: string; userVerification: string; timeout: number } = {
+      challenge,
+      userVerification: 'required',
+      timeout: 60000,
+    };
+    if (!isIp) {
+      optionsPayload.rpId = cleanHost;
+    }
 
     return NextResponse.json({
       success: true,
-      options: {
-        challenge,
-        rpId: domain,
-        userVerification: 'required', // Wajib memverifikasi sensor wajah atau sidik jari ponsel
-        timeout: 60000,
-      },
+      options: optionsPayload,
     });
   } catch (error) {
     console.error('Error biometric login challenge:', error);

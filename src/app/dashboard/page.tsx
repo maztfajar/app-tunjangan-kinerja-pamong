@@ -132,7 +132,17 @@ export default function UserDashboard() {
   const [gpsStatus, setGpsStatus] = useState<'idle' | 'prompt' | 'granted' | 'denied' | 'error'>('idle');
   const [gpsLoading, setGpsLoading] = useState(true);
   const [gpsErrorDetail, setGpsErrorDetail] = useState('');
+  const [isAgendaEnabled, setIsAgendaEnabled] = useState(false);
   const watchIdRef = useRef<(() => void) | number | null>(null);
+
+  useEffect(() => {
+    fetch('/api/license/status')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.features?.agenda) setIsAgendaEnabled(true);
+      })
+      .catch(() => {});
+  }, []);
 
   // Form Kegiatan States
   const [deskripsiKegiatan, setDeskripsiKegiatan] = useState('');
@@ -1362,13 +1372,15 @@ export default function UserDashboard() {
             >
               <IconFileText size={14} color="#4361ee" /> Laporan
             </Link>
-            <Link
-              href="/dashboard/agenda"
-              className="btn-outline"
-              style={{ flex: 1, justifyContent: 'center', padding: '7px 10px', fontSize: '12px', minHeight: '34px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-            >
-              <IconCalendar size={14} color="#4361ee" /> Agenda
-            </Link>
+            {isAgendaEnabled && (
+              <Link
+                href="/dashboard/agenda"
+                className="btn-outline"
+                style={{ flex: 1, justifyContent: 'center', padding: '7px 10px', fontSize: '12px', minHeight: '34px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              >
+                <IconCalendar size={14} color="#4361ee" /> Agenda
+              </Link>
+            )}
           </div>
         </div>
       </div>

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
+import { getLicenseInfo } from '@/lib/license';
 
 // Helper: parse "HH:MM"
 function parseTimeStr(t: string): { hour: number; minute: number } {
@@ -21,6 +22,11 @@ export async function GET() {
     const session = await getSession();
     if (!session || (session.role !== 'ADMIN' && session.role !== 'SUPERADMIN')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const license = await getLicenseInfo();
+    if (!license.features.suket) {
+      return NextResponse.json({ pendingCount: 0, items: [] });
     }
 
     // Ambil seluruh presensi yang memiliki field suket

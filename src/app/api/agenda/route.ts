@@ -1,12 +1,18 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
+import { getLicenseInfo } from '@/lib/license';
 
 export async function GET() {
   try {
     const session = await getSession();
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const license = await getLicenseInfo();
+    if (!license.features.agenda) {
+      return NextResponse.json({ error: 'Fitur Agenda hanya tersedia pada lisensi PRO.' }, { status: 403 });
     }
 
     const agenda = await prisma.agenda.findMany({
@@ -26,6 +32,11 @@ export async function POST(request: Request) {
     const session = await getSession();
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const license = await getLicenseInfo();
+    if (!license.features.agenda) {
+      return NextResponse.json({ error: 'Fitur Agenda hanya tersedia pada lisensi PRO.' }, { status: 403 });
     }
 
     const { judul, tanggal, lokasi, catatan } = await request.json();

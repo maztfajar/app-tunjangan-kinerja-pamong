@@ -111,16 +111,20 @@ body {
 .app-sidebar {
   background: #ffffff;
   border-right: 1px solid #e2e8f0;
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100dvh;
   display: flex;
   flex-direction: column;
   position: fixed;
   top: 0;
   left: 0;
+  bottom: 0;
   z-index: 60;
   transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   box-shadow: 2px 0 12px rgba(0, 0, 0, 0.04);
 }
 
@@ -197,12 +201,17 @@ body {
 /* Mobile & Tablet Drawer */
 @media (max-width: 1023px) {
   .app-sidebar {
-    width: 280px;
-    max-width: 80vw;
+    width: 285px;
+    max-width: 85vw;
+    height: 100vh;
+    height: 100dvh;
+    max-height: 100dvh;
     transform: translateX(-100%);
     box-shadow: 6px 0 30px rgba(0, 0, 0, 0.18);
     visibility: hidden;
     transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), visibility 0s linear 0.3s;
+    /* Memberi ruang cadangan ekstra di bawah agar tombol logout tidak tertutupi toolbar Chrome */
+    padding-bottom: calc(48px + env(safe-area-inset-bottom, 20px)) !important;
   }
 
   .app-sidebar.open {

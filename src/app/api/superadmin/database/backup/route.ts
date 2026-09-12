@@ -1,8 +1,19 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getSession } from '@/lib/auth';
+import { getLicenseInfo } from '@/lib/license';
 
 export async function GET() {
   try {
+    const session = await getSession();
+    if (!session || session.role !== 'SUPERADMIN') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const license = await getLicenseInfo();
+    if (!license.features.backupRestore) {
+      return NextResponse.json({ error: 'Fitur Backup Database hanya tersedia pada lisensi PRO.' }, { status: 403 });
+    }
     // Collect main tables
     const [users, masterJabatan, masterUnitKerja, presensi, aktifitas, laporan, laporanKinerja, agenda, hariLibur, appSettings, jamKerja, tasks, kegiatanJabatan, rencanaKegiatan, outputKegiatan, biometricCredential] = await Promise.all([
       prisma.user.findMany(),

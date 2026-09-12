@@ -79,7 +79,7 @@ export default function RekapAktivitasPage() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       <div>
         <h2 style={{ fontSize: '24px', fontWeight: '800', color: '#0f172a', marginBottom: '6px' }}>
-          Rekap Log Aktivitas 📝
+          Rekap Log Aktivitas
         </h2>
         <p style={{ color: '#64748b', fontSize: '13px' }}>
           Rekapitulasi log aktivitas seluruh pegawai — {bulanLabel}

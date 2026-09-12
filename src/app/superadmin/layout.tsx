@@ -27,6 +27,7 @@ const superAdminMenuItems = [
   { href: '/superadmin/format-laporan', label: 'Format Laporan & Kop', icon: IconFileText },
   { href: '/superadmin/admins', label: 'Manajemen User Admin', icon: IconUsers },
   { href: '/superadmin/database', label: 'Kelola Database', icon: IconDatabase },
+  { href: '/superadmin/biometrik', label: 'Kunci Biometrik', icon: IconFingerprint },
   { href: '/superadmin/ganti-password', label: 'Ganti Password Root', icon: IconLock },
   { href: '/superadmin/panduan', label: 'Buku Panduan Super Admin', icon: IconBook },
 ];
@@ -52,6 +53,16 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
   const [hasBiometricRegistered, setHasBiometricRegistered] = useState(false);
   const [biometricActionLoading, setBiometricActionLoading] = useState(false);
   const [biometricFeedback, setBiometricFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [licenseFeatures, setLicenseFeatures] = useState<{ customKop?: boolean; biometrics?: boolean } | null>(null);
+
+  useEffect(() => {
+    fetch('/api/license/status')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.features) setLicenseFeatures(data.features);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -64,7 +75,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
   }, []);
 
   useEffect(() => {
-    if (isMobile) {
+    if (isMobile && licenseFeatures?.biometrics) {
       fetch('/api/auth/biometric/check')
         .then((res) => res.json())
         .then((data) => {
@@ -76,7 +87,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
         })
         .catch(() => {});
     }
-  }, [profileOpen, isMobile]);
+  }, [isMobile, licenseFeatures?.biometrics, profileOpen]);
 
   const handleRegisterBiometric = async () => {
     try {
@@ -286,9 +297,19 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
         </div>
 
         {/* Navigation */}
-        <nav style={{ flex: 1, overflowY: 'auto' }}>
+        <nav style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            {superAdminMenuItems.map((item) => {
+            {superAdminMenuItems
+              .filter((item) => {
+                if (item.href === '/superadmin/format-laporan' && !licenseFeatures?.customKop) {
+                  return false;
+                }
+                if (item.href === '/superadmin/biometrik' && !licenseFeatures?.biometrics) {
+                  return false;
+                }
+                return true;
+              })
+              .map((item) => {
               const IconComponent = item.icon;
               const isActive = pathname === item.href;
               return (
@@ -298,6 +319,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
                   prefetch={false}
                   className={`sidebar-link ${isActive ? 'active' : ''}`}
                   data-tooltip={item.label}
+                  onClick={() => setSidebarOpen(false)}
                 >
                   <IconComponent size={18} color={isActive ? '#4361ee' : '#64748b'} />
                   <span style={{ flex: 1 }}>{item.label}</span>
@@ -347,37 +369,16 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
           </div>
         </div>
 
-        {/* Footer Hapus Biometrik (Khusus Mobile di Sidebar Bawah Sendiri) */}
-        {isMobile && (
-          <div style={{ padding: '0 8px 8px 8px' }}>
-            <button
-              onClick={() => {
-                setSidebarOpen(false);
-                handleRemoveBiometric();
-              }}
-              className="sidebar-link"
-              style={{
-                width: '100%',
-                border: '1px solid #fed7aa',
-                background: '#fff7ed',
-                cursor: 'pointer',
-                color: '#c2410c',
-                fontFamily: 'inherit',
-                justifyContent: 'center',
-                fontWeight: '600',
-                gap: '8px',
-                fontSize: '12px',
-                touchAction: 'manipulation',
-              }}
-            >
-              <IconFingerprint size={16} color="#c2410c" />
-              <span className="sidebar-logout-text">Hapus Kunci Biometrik</span>
-            </button>
-          </div>
-        )}
-
-        {/* Footer Logout */}
-        <div style={{ paddingTop: '10px', borderTop: '1px solid #eaedf2' }}>
+        {/* Footer Logout (Dengan safe-area padding ekstra agar tidak tertutup Google Chrome mobile) */}
+        <div
+          style={{
+            paddingTop: '10px',
+            paddingBottom: 'calc(24px + env(safe-area-inset-bottom, 14px))',
+            borderTop: '1px solid #eaedf2',
+            marginTop: 'auto',
+            flexShrink: 0,
+          }}
+        >
           <button
             onClick={handleLogout}
             className="sidebar-link"
@@ -392,6 +393,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
               justifyContent: 'center',
               fontWeight: '600',
               gap: '8px',
+              touchAction: 'manipulation',
             }}
           >
             <IconLogout size={16} color="#ef4444" />
@@ -603,8 +605,8 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
               </Link>
             </div>
 
-            {/* Menu Biometrik Ponsel (Hanya smartphone) */}
-            {isMobile && (
+            {/* Menu Biometrik Ponsel (Hanya smartphone & jika fitur aktif) */}
+            {isMobile && licenseFeatures?.biometrics && (
               <div
                 style={{
                   marginBottom: '16px',
