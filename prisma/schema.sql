@@ -173,6 +173,7 @@ CREATE TABLE IF NOT EXISTS "AppSettings" (
     "ukuranKertas" TEXT DEFAULT 'A4',
     "posisiDokumen" TEXT DEFAULT 'portrait',
     "sembunyikanNip" BOOLEAN DEFAULT false,
+    "sembunyikanNipAtasan" BOOLEAN DEFAULT false,
     "ttdTempat" TEXT DEFAULT 'Pengasih',
     "ttdJudulKiri" TEXT DEFAULT 'Yang Membuat Laporan',
     "ttdAtasanUserId" TEXT,
@@ -180,6 +181,7 @@ CREATE TABLE IF NOT EXISTS "AppSettings" (
     "ttdAtasanJabatan" TEXT DEFAULT 'Panewu Pengasih',
     "ttdAtasanNama" TEXT DEFAULT '.................................',
     "ttdAtasanNip" TEXT DEFAULT '.................................',
+    "serialNumber" TEXT,
     "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "AppSettings_pkey" PRIMARY KEY ("id")
@@ -384,3 +386,9 @@ DO $$ BEGIN
 EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
+
+-- ==============================================================================
+-- AUTO-MIGRATION: TAMBAH KOLOM BARU APPSETTINGS JIKA BELUM ADA
+-- ==============================================================================
+ALTER TABLE "AppSettings" ADD COLUMN IF NOT EXISTS "serialNumber" TEXT;
+ALTER TABLE "AppSettings" ADD COLUMN IF NOT EXISTS "sembunyikanNipAtasan" BOOLEAN DEFAULT false;

@@ -81,8 +81,11 @@ cp app.js            .next/standalone/app.js
 cp check-db.js       .next/standalone/check-db.js
 cp setup-db.js       .next/standalone/setup-db.js
 cp .env.example      .next/standalone/.env.example
-cp .env.example      .next/standalone/.env
+# JANGAN menyalin ke .env agar file .env produksi di hosting tidak tertimpa saat extract!
 cp -r prisma         .next/standalone/prisma/
+if [ -d "scripts" ]; then
+  cp -r scripts      .next/standalone/scripts/
+fi
 
 # Salin folder storage (database.sqlite bawaan untuk instant publish)
 mkdir -p .next/standalone/storage
@@ -122,6 +125,7 @@ rm -f "$ZIP_NAME"
 
 cd .next/standalone
 zip -9 -r "../../$ZIP_NAME" . \
+  --exclude ".env" \
   --exclude "*.log" \
   --exclude "*/.DS_Store" \
   --exclude "*/__pycache__/*" \

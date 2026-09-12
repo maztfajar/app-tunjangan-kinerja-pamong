@@ -47,18 +47,41 @@ export async function POST(request: Request) {
       );
     }
 
+    // Pastikan kolom serialNumber ada di tabel AppSettings (auto-migration di PostgreSQL hosting)
+    try {
+      await prisma.$executeRawUnsafe(
+        `ALTER TABLE "AppSettings" ADD COLUMN IF NOT EXISTS "serialNumber" TEXT;`
+      );
+    } catch (alterErr) {
+      console.warn('Auto-create serialNumber column notice:', alterErr);
+    }
+
     // Simpan ke AppSettings
-    await prisma.appSettings.upsert({
-      where: { id: 'default' },
-      update: { serialNumber: rawKey },
-      create: {
-        id: 'default',
-        namaApp: 'E-KINERJA',
-        namaKantor: 'Kalurahan',
-        subJudul: 'Sistem Informasi Pamong',
-        serialNumber: rawKey,
-      },
-    });
+    try {
+      await prisma.appSettings.upsert({
+        where: { id: 'default' },
+        update: { serialNumber: rawKey },
+        create: {
+          id: 'default',
+          namaApp: 'E-KINERJA',
+          namaKantor: 'Kalurahan',
+          subJudul: 'Sistem Informasi Pamong',
+          serialNumber: rawKey,
+        },
+      });
+    } catch (upsertErr: any) {
+      console.warn('Prisma upsert fallback, executing raw UPDATE/INSERT:', upsertErr?.message);
+      const rowsUpdated = await prisma.$executeRawUnsafe(
+        `UPDATE "AppSettings" SET "serialNumber" = $1 WHERE "id" = 'default'`,
+        rawKey
+      );
+      if (rowsUpdated === 0) {
+        await prisma.$executeRawUnsafe(
+          `INSERT INTO "AppSettings" ("id", "namaApp", "namaKantor", "subJudul", "serialNumber") VALUES ('default', 'E-KINERJA', 'Kalurahan', 'Sistem Informasi Pamong', $1)`,
+          rawKey
+        );
+      }
+    }
 
     invalidateLicenseCache();
     const newLicense = await getLicenseInfo(host);
@@ -68,9 +91,12 @@ export async function POST(request: Request) {
       message: 'Serial Number berhasil diverifikasi dan diaktifkan.',
       license: newLicense,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Save license error:', error);
-    return NextResponse.json({ error: 'Gagal menyimpan Serial Number' }, { status: 500 });
+    return NextResponse.json(
+      { error: error?.message ? `Gagal menyimpan Serial Number: ${error.message}` : 'Gagal menyimpan Serial Number' },
+      { status: 500 }
+    );
   }
 }
 
