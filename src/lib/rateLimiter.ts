@@ -93,9 +93,13 @@ export function checkRateLimit(
 }
 
 /**
- * Rate Limiter Khusus Login (Anti Brute-force per Akun / Device)
- * Maksimal 5x gagal dalam 15 menit per akun (NIP/username). Jika melampaui, blokir akun tersebut selama 15 menit.
- * Ini memastikan 80-100 pamong di kantor WiFi yang sama memiliki jalur mandiri tanpa saling mengunci.
+ * Rate Limiter Khusus Login (Anti Brute-force per Akun/Username Mandiri)
+ * Maksimal 5x gagal dalam 2 menit per akun (username). Jika melampaui, akun tersebut dijeda selama 2 menit.
+ * 
+ * Prinsip Isolasi:
+ * Pembatasan ini sepenuhnya mandiri per-akun (identifier). Jika ada satu akun yang salah 5 kali
+ * dan dijeda 2 menit, akun-akun pegawai lainnya dalam jaringan/Wi-Fi/LAN/IP yang sama TETAP BISA
+ * login dan masuk ke dashboard tanpa terganggu sama sekali.
  */
 export function checkLoginRateLimit(identifier: string): {
   allowed: boolean;
@@ -109,6 +113,7 @@ export function checkLoginRateLimit(identifier: string): {
     return { allowed: true, remainingAttempts: 5, blockedSeconds: 0 };
   }
 
+  // Jika akun sedang dalam masa jeda 2 menit
   if (record.blockedUntil > now) {
     const blockedSeconds = Math.ceil((record.blockedUntil - now) / 1000);
     return {
@@ -118,7 +123,7 @@ export function checkLoginRateLimit(identifier: string): {
     };
   }
 
-  // Jika waktu blokir sudah lewat, reset counter
+  // Jika masa jeda 2 menit sudah selesai, reset counter dan berikan 5 kesempatan baru
   if (record.blockedUntil !== 0 && record.blockedUntil <= now) {
     loginAttemptsStore.delete(identifier);
     return { allowed: true, remainingAttempts: 5, blockedSeconds: 0 };
@@ -133,12 +138,13 @@ export function checkLoginRateLimit(identifier: string): {
 }
 
 /**
- * Catat hasil percobaan login per akun (identifier)
+ * Catat hasil percobaan login per akun (identifier).
+ * Reset ke 0 jika sukses login. Jika gagal 5 kali, jeda selama 2 menit (120 detik).
  */
 export function recordLoginAttempt(identifier: string, success: boolean) {
   const now = Date.now();
   if (success) {
-    // Reset counter setelah login berhasil
+    // Reset counter kegagalan setelah login berhasil
     loginAttemptsStore.delete(identifier);
     return;
   }
@@ -146,9 +152,9 @@ export function recordLoginAttempt(identifier: string, success: boolean) {
   const record = loginAttemptsStore.get(identifier) || { count: 0, blockedUntil: 0 };
   record.count += 1;
 
-  // Jika gagal 5 kali berturut-turut, kunci akun tersebut selama 15 menit
+  // Jika gagal 5 kali berturut-turut, jeda akun tersebut selama 2 menit
   if (record.count >= 5) {
-    record.blockedUntil = now + 15 * 60 * 1000;
+    record.blockedUntil = now + 2 * 60 * 1000; // 2 menit (120.000 ms)
   }
 
   loginAttemptsStore.set(identifier, record);

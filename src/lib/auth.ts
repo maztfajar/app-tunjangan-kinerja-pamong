@@ -2,37 +2,97 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { cookies } from 'next/headers';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'pamong-app-super-secret-jwt-key-2025';
+import crypto from 'crypto';
 
-if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
-  console.warn('⚠️ PERINGATAN KEAMANAN: JWT_SECRET belum didefinisikan di environment variable (.env).');
+let runtimeSecret = '';
+function getJwtSecret(): string {
+  if (process.env.JWT_SECRET) {
+    return process.env.JWT_SECRET;
+  }
+  if (process.env.NODE_ENV === 'production') {
+    if (!runtimeSecret) {
+      runtimeSecret = crypto.randomBytes(32).toString('hex');
+      console.warn('⚠️ PERINGATAN KEAMANAN KRITIS: JWT_SECRET belum didefinisikan di .env. Menggunakan ephemeral runtime secret untuk mencegah eksploitasi pemalsuan token publik.');
+    }
+    return runtimeSecret;
+  }
+  return 'pamong-app-super-secret-jwt-key-2025';
 }
+
+const JWT_SECRET = getJwtSecret();
 
 export interface JWTPayload {
   userId: string;
-  nip: string;
+  username: string;
+  nip: string; // Alias kompatibilitas mundur
   nama: string;
   role: 'SUPERADMIN' | 'ADMIN' | 'PEGAWAI';
 }
 
+const PEPPER = process.env.PASSWORD_PEPPER || 'pamong-internal-pepper-salt-secret-key-2026';
+
 /**
- * Hash password dengan bcrypt salt rounds 12 untuk keamanan tinggi
+ * Kebijakan Validasi Kekuatan Password (Password Policy):
+ * - Minimal 8 karakter
+ * - Harus mengandung setidaknya satu huruf dan satu angka
+ * Mencegah pamong/admin menggunakan password yang terlalu mudah ditebak seperti '123456'
+ */
+export function validatePasswordStrength(password: string): { valid: boolean; error?: string } {
+  if (!password || password.length < 8) {
+    return { valid: false, error: 'Password minimal terdiri dari 8 karakter.' };
+  }
+  if (!/[A-Za-z]/.test(password)) {
+    return { valid: false, error: 'Password harus mengandung setidaknya satu huruf.' };
+  }
+  if (!/[0-9]/.test(password)) {
+    return { valid: false, error: 'Password harus mengandung setidaknya satu angka.' };
+  }
+  return { valid: true };
+}
+
+/**
+ * Hash password dengan bcrypt salt rounds 12 + Server Pepper untuk keamanan tingkat tinggi.
+ * Sekalipun database dicuri, hash tidak bisa di-crack tanpa kunci pepper server.
  */
 export async function hashPassword(password: string): Promise<string> {
-  return bcrypt.hash(password, 12);
+  return bcrypt.hash(password + PEPPER, 12);
 }
 
+/**
+ * Verifikasi password dengan kompatibilitas mundur penuh (Backward Compatibility):
+ * 1. Coba verifikasi dengan Pepper (standar baru)
+ * 2. Jika tidak cocok, fallback coba verifikasi tanpa Pepper (untuk akun yang dibuat sebelum fitur pepper)
+ * Menjamin 100% akun yang sudah ada tetap bisa login lancar tanpa ada sistem yang rusak.
+ */
 export async function comparePassword(password: string, hash: string): Promise<boolean> {
-  return bcrypt.compare(password, hash);
+  try {
+    const isMatchWithPepper = await bcrypt.compare(password + PEPPER, hash);
+    if (isMatchWithPepper) return true;
+    return await bcrypt.compare(password, hash);
+  } catch {
+    return false;
+  }
 }
 
-export function signToken(payload: JWTPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: '24h' });
+export function signToken(payload: { userId: string; username?: string; nip?: string; nama: string; role: 'SUPERADMIN' | 'ADMIN' | 'PEGAWAI' }): string {
+  const finalUsername = payload.username || payload.nip || '';
+  return jwt.sign({
+    ...payload,
+    username: finalUsername,
+    nip: finalUsername,
+  }, JWT_SECRET, { expiresIn: '24h' });
 }
 
 export function verifyToken(token: string): JWTPayload | null {
   try {
-    return jwt.verify(token, JWT_SECRET) as JWTPayload;
+    const payload = jwt.verify(token, JWT_SECRET) as Record<string, unknown>;
+    if (!payload || typeof payload !== 'object') return null;
+    const finalUsername = String(payload.username || payload.nip || '');
+    return {
+      ...payload,
+      username: finalUsername,
+      nip: finalUsername,
+    } as unknown as JWTPayload;
   } catch {
     return null;
   }
@@ -77,6 +137,7 @@ export async function getAuthUser(req?: Request) {
 
   return {
     ...user,
+    nip: user.username,
     jabatanId,
   };
 }

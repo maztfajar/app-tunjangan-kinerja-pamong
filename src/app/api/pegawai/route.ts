@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getSession, hashPassword } from '@/lib/auth';
+import { getSession, hashPassword, validatePasswordStrength } from '@/lib/auth';
 import { getLicenseInfo } from '@/lib/license';
 
 export async function GET() {
@@ -14,7 +14,7 @@ export async function GET() {
       where: { role: 'PEGAWAI' },
       select: {
         id: true,
-        nip: true,
+        username: true,
         nama: true,
         jabatan: true,
         unitKerja: true,
@@ -23,7 +23,12 @@ export async function GET() {
       orderBy: { nama: 'asc' },
     });
 
-    return NextResponse.json({ pegawai });
+    const mappedPegawai = pegawai.map((p) => ({
+      ...p,
+      nip: p.username,
+    }));
+
+    return NextResponse.json({ pegawai: mappedPegawai });
   } catch (error) {
     console.error('Get pegawai error:', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
@@ -37,17 +42,24 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { nip, nama, jabatan, unitKerja, password } = await request.json();
+    const body = await request.json();
+    const username = String(body.username || body.nip || '').trim();
+    const { nama, jabatan, unitKerja, password } = body;
 
-    if (!nip || !nama || !password) {
+    if (!username || !nama || !password) {
       return NextResponse.json(
         { error: 'Username, nama, dan password wajib diisi' },
         { status: 400 }
       );
     }
 
+    const pwdCheck = validatePasswordStrength(password);
+    if (!pwdCheck.valid) {
+      return NextResponse.json({ error: pwdCheck.error }, { status: 400 });
+    }
+
     // Cek Username sudah ada
-    const existing = await prisma.user.findUnique({ where: { nip } });
+    const existing = await prisma.user.findUnique({ where: { username } });
     if (existing) {
       return NextResponse.json(
         { error: 'Username sudah terdaftar' },
@@ -75,7 +87,7 @@ export async function POST(request: Request) {
     const hashedPassword = await hashPassword(password);
     const pegawai = await prisma.user.create({
       data: {
-        nip,
+        username,
         nama,
         jabatan,
         unitKerja,
@@ -88,7 +100,8 @@ export async function POST(request: Request) {
       success: true,
       pegawai: {
         id: pegawai.id,
-        nip: pegawai.nip,
+        username: pegawai.username,
+        nip: pegawai.username,
         nama: pegawai.nama,
         jabatan: pegawai.jabatan,
         unitKerja: pegawai.unitKerja,

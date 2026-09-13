@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getSession } from '@/lib/auth';
+import { getSession, validatePasswordStrength } from '@/lib/auth';
 import { readFileSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
 
@@ -26,12 +26,14 @@ function readEnv(): Record<string, string> {
 }
 
 function writeEnvKey(key: string, value: string) {
+  // Bersihkan karakter baris baru dan escape kutip untuk mencegah .env injection
+  const sanitizedValue = value.replace(/[\r\n]/g, '').replace(/"/g, '\\"');
   let content = readFileSync(ENV_PATH, 'utf-8');
   const regex = new RegExp(`^(${key}=).*$`, 'm');
   if (regex.test(content)) {
-    content = content.replace(regex, `${key}="${value}"`);
+    content = content.replace(regex, `${key}="${sanitizedValue}"`);
   } else {
-    content += `\n${key}="${value}"\n`;
+    content += `\n${key}="${sanitizedValue}"\n`;
   }
   writeFileSync(ENV_PATH, content, 'utf-8');
 }
@@ -75,6 +77,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Semua kolom wajib diisi.' }, { status: 400 });
     }
 
+    // Validasi pencegahan injeksi karakter baris baru
+    if (/[\r\n]/.test(newPassword) || (newUsername && /[\r\n]/.test(newUsername))) {
+      return NextResponse.json({ error: 'Karakter baris baru (newline) tidak diizinkan.' }, { status: 400 });
+    }
+
     // Verifikasi password lama
     const env = readEnv();
     const storedPass = env['SUPERADMIN_PASS'] || 'root';
@@ -86,8 +93,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Password baru dan konfirmasi tidak sama.' }, { status: 400 });
     }
 
-    if (newPassword.length < 6) {
-      return NextResponse.json({ error: 'Password baru minimal 6 karakter.' }, { status: 400 });
+    const pwdCheck = validatePasswordStrength(newPassword);
+    if (!pwdCheck.valid) {
+      return NextResponse.json({ error: pwdCheck.error }, { status: 400 });
     }
 
     // Update .env

@@ -24,6 +24,7 @@ export async function POST(request: Request) {
   const makeSuccessResponse = (
     userPayload: {
       id: string;
+      username: string;
       nip: string;
       nama: string;
       role: string;
@@ -65,29 +66,29 @@ export async function POST(request: Request) {
   };
 
   try {
-    let nip = '';
+    let username = '';
     let password = '';
 
     let botToken = '';
 
     if (isFormSubmit) {
       const formData = await request.formData();
-      nip = String(formData.get('nip') || '').trim();
+      username = String(formData.get('username') || formData.get('nip') || '').trim();
       password = String(formData.get('password') || '');
       botToken = String(formData.get('cf-turnstile-response') || formData.get('botToken') || '');
     } else {
       try {
         const body = await request.json();
-        nip = String(body.nip || '').trim();
+        username = String(body.username || body.nip || '').trim();
         password = String(body.password || '');
         botToken = String(body['cf-turnstile-response'] || body.botToken || '');
       } catch {
-        nip = '';
+        username = '';
         password = '';
       }
     }
 
-    if (!nip || !password) {
+    if (!username || !password) {
       return makeErrorResponse('Username dan password wajib diisi', 400);
     }
 
@@ -98,17 +99,20 @@ export async function POST(request: Request) {
         return makeErrorResponse('Verifikasi anti-bot (Cloudflare Turnstile) wajib diselesaikan terlebih dahulu.', 400);
       }
 
+      // Fallback token hanya diizinkan pada lingkungan pengembangan lokal (development)
       let isFallbackToken = false;
-      try {
-        const decoded = Buffer.from(botToken, 'base64').toString('utf-8');
-        if (decoded.startsWith('cf_turnstile_guard_')) {
-          const parts = decoded.split('_');
-          const tokenTime = parseInt(parts[3] || '0', 10);
-          if (Date.now() - tokenTime < 5 * 60 * 1000) {
-            isFallbackToken = true;
+      if (process.env.NODE_ENV !== 'production') {
+        try {
+          const decoded = Buffer.from(botToken, 'base64').toString('utf-8');
+          if (decoded.startsWith('cf_turnstile_guard_')) {
+            const parts = decoded.split('_');
+            const tokenTime = parseInt(parts[3] || '0', 10);
+            if (Date.now() - tokenTime < 5 * 60 * 1000) {
+              isFallbackToken = true;
+            }
           }
-        }
-      } catch {}
+        } catch {}
+      }
 
       if (!isFallbackToken) {
         try {
@@ -133,12 +137,14 @@ export async function POST(request: Request) {
     }
 
     // 2. Periksa batas percobaan login per akun (Anti Brute-force per Akun/Jalur Mandiri)
-    const rateLimitKey = `nip:${nip}`;
+    // Sepenuhnya independen per akun, tidak mengganggu akun pamong lain yang berada di IP/Wi-Fi yang sama
+    const normalizedUsername = username.toLowerCase();
+    const rateLimitKey = `user:${normalizedUsername}`;
     const rateLimitStatus = checkLoginRateLimit(rateLimitKey);
     if (!rateLimitStatus.allowed) {
-      const menit = Math.ceil(rateLimitStatus.blockedSeconds / 60);
+      const menit = Math.max(1, Math.ceil(rateLimitStatus.blockedSeconds / 60));
       return makeErrorResponse(
-        `Akses login untuk akun ini diblokir sementara demi keamanan karena terlalu banyak kegagalan. Silakan coba lagi dalam ${menit} menit.`,
+        `Akses login untuk akun ini dijeda selama ${menit} menit demi keamanan karena 5 kali salah password. Silakan tunggu sejenak atau hubungi Admin Kalurahan jika lupa password.`,
         429
       );
     }
@@ -146,21 +152,27 @@ export async function POST(request: Request) {
     const superAdminUser = process.env.SUPERADMIN_USER || 'root';
     const superAdminPass = process.env.SUPERADMIN_PASS || 'root';
 
-    // 2. Cek login Super Admin (kredensial dari .env)
-    if (nip === superAdminUser) {
+    // 3. Cek login Super Admin (kredensial dari .env)
+    if (username === superAdminUser) {
       if (password !== superAdminPass) {
         recordLoginAttempt(rateLimitKey, false);
         const updatedStatus = checkLoginRateLimit(rateLimitKey);
+        if (!updatedStatus.allowed) {
+          return makeErrorResponse(
+            'Username atau password salah. Akses login untuk akun ini dijeda selama 2 menit demi keamanan.',
+            429
+          );
+        }
         const warning =
-          updatedStatus.remainingAttempts <= 3
-            ? ` (Sisa percobaan: ${updatedStatus.remainingAttempts}x)`
+          updatedStatus.remainingAttempts <= 2 && updatedStatus.remainingAttempts > 0
+            ? ` (Sisa kesempatan: ${updatedStatus.remainingAttempts}x sebelum akun dijeda sejenak)`
             : '';
-        return makeErrorResponse(`Password Super Admin salah${warning}`, 401);
+        return makeErrorResponse(`Username atau password salah${warning}`, 401);
       }
 
       // Pastikan record Super Admin di database
       let superUser = await prisma.user.findUnique({
-        where: { nip: superAdminUser },
+        where: { username: superAdminUser },
       });
 
       if (!superUser) {
@@ -168,7 +180,7 @@ export async function POST(request: Request) {
         const hashedPassword = await hashPassword(superAdminPass);
         superUser = await prisma.user.create({
           data: {
-            nip: superAdminUser,
+            username: superAdminUser,
             nama: 'Super Administrator',
             password: hashedPassword,
             role: 'SUPERADMIN',
@@ -188,7 +200,8 @@ export async function POST(request: Request) {
 
       const token = signToken({
         userId: superUser.id,
-        nip: superUser.nip,
+        username: superUser.username,
+        nip: superUser.username,
         nama: superUser.nama,
         role: 'SUPERADMIN',
       });
@@ -196,7 +209,8 @@ export async function POST(request: Request) {
       return makeSuccessResponse(
         {
           id: superUser.id,
-          nip: superUser.nip,
+          username: superUser.username,
+          nip: superUser.username,
           nama: superUser.nama,
           role: superUser.role,
           jabatan: superUser.jabatan,
@@ -207,30 +221,42 @@ export async function POST(request: Request) {
       );
     }
 
-    // 3. Cek login Pengguna Biasa (Admin & Pegawai)
+    // 4. Cek login Pengguna Biasa (Admin & Pegawai)
     const user = await prisma.user.findUnique({
-      where: { nip },
+      where: { username },
     });
 
     if (!user) {
       recordLoginAttempt(rateLimitKey, false);
       const updatedStatus = checkLoginRateLimit(rateLimitKey);
+      if (!updatedStatus.allowed) {
+        return makeErrorResponse(
+          'Username atau password salah. Akses login untuk akun ini dijeda selama 2 menit demi keamanan.',
+          429
+        );
+      }
       const warning =
-        updatedStatus.remainingAttempts <= 3
-          ? ` (Sisa percobaan: ${updatedStatus.remainingAttempts}x)`
+        updatedStatus.remainingAttempts <= 2 && updatedStatus.remainingAttempts > 0
+          ? ` (Sisa kesempatan: ${updatedStatus.remainingAttempts}x sebelum akun dijeda sejenak)`
           : '';
-      return makeErrorResponse(`Username tidak ditemukan${warning}`, 401);
+      return makeErrorResponse(`Username atau password salah${warning}`, 401);
     }
 
     const isValid = await comparePassword(password, user.password);
     if (!isValid) {
       recordLoginAttempt(rateLimitKey, false);
       const updatedStatus = checkLoginRateLimit(rateLimitKey);
+      if (!updatedStatus.allowed) {
+        return makeErrorResponse(
+          'Username atau password salah. Akses login untuk akun ini dijeda selama 2 menit demi keamanan.',
+          429
+        );
+      }
       const warning =
-        updatedStatus.remainingAttempts <= 3
-          ? ` (Sisa percobaan: ${updatedStatus.remainingAttempts}x)`
+        updatedStatus.remainingAttempts <= 2 && updatedStatus.remainingAttempts > 0
+          ? ` (Sisa kesempatan: ${updatedStatus.remainingAttempts}x sebelum akun dijeda sejenak)`
           : '';
-      return makeErrorResponse(`Password salah${warning}`, 401);
+      return makeErrorResponse(`Username atau password salah${warning}`, 401);
     }
 
     // Reset limiter saat berhasil login
@@ -238,7 +264,8 @@ export async function POST(request: Request) {
 
     const token = signToken({
       userId: user.id,
-      nip: user.nip,
+      username: user.username,
+      nip: user.username,
       nama: user.nama,
       role: user.role,
     });
@@ -253,7 +280,8 @@ export async function POST(request: Request) {
     return makeSuccessResponse(
       {
         id: user.id,
-        nip: user.nip,
+        username: user.username,
+        nip: user.username,
         nama: user.nama,
         role: user.role,
         jabatan: user.jabatan,

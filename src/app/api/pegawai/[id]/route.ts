@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getSession, hashPassword } from '@/lib/auth';
+import { getSession, hashPassword, validatePasswordStrength } from '@/lib/auth';
 
 export async function PUT(
   request: Request,
@@ -23,22 +23,36 @@ export async function PUT(
       return NextResponse.json({ error: 'Akun Admin/Super Admin hanya dapat dikelola di menu Super Admin.' }, { status: 403 });
     }
 
-    const { nip, nama, jabatan, unitKerja, password } = await request.json();
+    const body = await request.json();
+    const { nama, jabatan, unitKerja, password } = body;
+    const username = (body.username !== undefined ? body.username : body.nip)?.trim();
 
     const updateData: Record<string, unknown> = {};
-    if (nip) updateData.nip = nip;
+    if (username) updateData.username = username;
     if (nama) updateData.nama = nama;
     if (jabatan !== undefined) updateData.jabatan = jabatan;
     if (unitKerja !== undefined) updateData.unitKerja = unitKerja;
-    if (password) updateData.password = await hashPassword(password);
+    if (password) {
+      const pwdCheck = validatePasswordStrength(password);
+      if (!pwdCheck.valid) {
+        return NextResponse.json({ error: pwdCheck.error }, { status: 400 });
+      }
+      updateData.password = await hashPassword(password);
+    }
 
     const pegawai = await prisma.user.update({
       where: { id },
       data: updateData,
-      select: { id: true, nip: true, nama: true, jabatan: true, unitKerja: true },
+      select: { id: true, username: true, nama: true, jabatan: true, unitKerja: true },
     });
 
-    return NextResponse.json({ success: true, pegawai });
+    return NextResponse.json({
+      success: true,
+      pegawai: {
+        ...pegawai,
+        nip: pegawai.username,
+      },
+    });
   } catch (error) {
     console.error('Update pegawai error:', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });

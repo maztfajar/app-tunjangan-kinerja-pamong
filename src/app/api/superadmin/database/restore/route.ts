@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getLicenseInfo } from '@/lib/license';
+import { getSession } from '@/lib/auth';
 
 const EXPECTED_KEYS = new Set([
   'users',
@@ -21,14 +22,26 @@ const EXPECTED_KEYS = new Set([
   'biometricCredential',
 ]);
 
-function verifySecret(req: Request) {
-  const provided = req.headers.get('x-superadmin-secret') || '';
-  const expected = process.env.SUPERADMIN_RESTORE_SECRET || 'dev-secret';
-  return provided === expected;
-}
-
 export async function POST(req: Request) {
-  if (!verifySecret(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const session = await getSession();
+  const isSuperAdminSession = session && session.role === 'SUPERADMIN';
+
+  // Opsi header rahasia kustom HANYA jika disetel secara eksplisit di .env dan bukan default 'dev-secret'
+  const customSecret = process.env.SUPERADMIN_RESTORE_SECRET;
+  const providedSecret = req.headers.get('x-superadmin-secret') || '';
+  const isCustomSecretValid = Boolean(
+    customSecret &&
+    customSecret !== 'dev-secret' &&
+    providedSecret &&
+    providedSecret === customSecret
+  );
+
+  if (!isSuperAdminSession && !isCustomSecretValid) {
+    return NextResponse.json(
+      { error: 'Akses ditolak. Tindakan ini memerlukan otentikasi Super Admin.' },
+      { status: 403 }
+    );
+  }
 
   const license = await getLicenseInfo();
   if (!license.features.backupRestore) {
