@@ -37,7 +37,7 @@ export async function GET() {
       },
       include: {
         user: {
-          select: { id: true, nama: true, nip: true, jabatan: true },
+          select: { id: true, nama: true, username: true, jabatan: true },
         },
       },
       orderBy: { tanggal: 'desc' },
@@ -51,6 +51,7 @@ export async function GET() {
           if (parsed.status === 'Diajukan') {
             return {
               ...p,
+              user: p.user ? { ...p.user, nip: p.user.username } : p.user,
               parsedSuket: parsed,
             };
           }

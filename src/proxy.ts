@@ -74,7 +74,8 @@ export function proxy(request: NextRequest) {
   // 7. Teruskan user context & audit trail Request ID ke request headers
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-user-id', payload.userId);
-  requestHeaders.set('x-user-nip', payload.nip);
+  requestHeaders.set('x-user-username', payload.username);
+  requestHeaders.set('x-user-nip', payload.username);
   requestHeaders.set('x-user-role', payload.role);
   requestHeaders.set('x-user-nama', payload.nama);
   requestHeaders.set('x-request-id', crypto.randomUUID());

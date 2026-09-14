@@ -8,10 +8,10 @@ async function main() {
   const hashedPassword = await bcrypt.hash('1234', 10);
   
   const admin = await prisma.user.upsert({
-    where: { nip: 'admin' },
+    where: { username: 'admin' },
     update: {},
     create: {
-      nip: 'admin',
+      username: 'admin',
       nama: 'Administrator',
       password: hashedPassword,
       jabatan: 'Admin Sistem',
@@ -20,7 +20,7 @@ async function main() {
     },
   });
 
-  console.log('✅ Admin user created:', admin.nip);
+  console.log('✅ Admin user created:', admin.username);
 
   // Seed lokasi kantor (Kapanewon Pengasih)
   const lokasi = await prisma.lokasiKantor.upsert({
@@ -54,10 +54,10 @@ async function main() {
   const pegawaiPassword = await bcrypt.hash('1234', 10);
   
   const pegawai1 = await prisma.user.upsert({
-    where: { nip: '198501012010011001' },
+    where: { username: '198501012010011001' },
     update: {},
     create: {
-      nip: '198501012010011001',
+      username: '198501012010011001',
       nama: 'Budi Santoso',
       password: pegawaiPassword,
       jabatan: 'Staf Umum',
@@ -67,10 +67,10 @@ async function main() {
   });
 
   const pegawai2 = await prisma.user.upsert({
-    where: { nip: '199003152015012002' },
+    where: { username: '199003152015012002' },
     update: {},
     create: {
-      nip: '199003152015012002',
+      username: '199003152015012002',
       nama: 'Siti Rahayu',
       password: pegawaiPassword,
       jabatan: 'Staf Keuangan',

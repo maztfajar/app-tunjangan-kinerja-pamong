@@ -138,6 +138,9 @@ export function LaporanKinerjaTable({
   const [printSettings, setPrintSettings] = useState<Record<string, string> | null>(null);
   const lastFetchedKeyRef = useRef<string>('');
 
+  // Toggle lokal: sembunyikan NIP Atasan (misal Lurah tidak punya NIP)
+  const [nipAtasanHidden, setNipAtasanHidden] = useState(false);
+
   const triggerToast = (msg: string) => {
     setGreenToast(msg);
     setTimeout(() => setGreenToast(null), 4000);
@@ -173,7 +176,13 @@ export function LaporanKinerjaTable({
 
       if (resSettings.ok) {
         const settingsJson = await resSettings.json();
-        if (settingsJson.settings) setPrintSettings(settingsJson.settings);
+        if (settingsJson.settings) {
+          setPrintSettings(settingsJson.settings);
+          // Sinkronisasi toggle lokal dari nilai database
+          if (settingsJson.settings.sembunyikanNipAtasan) {
+            setNipAtasanHidden(Boolean(settingsJson.settings.sembunyikanNipAtasan));
+          }
+        }
       }
     } catch (err) {
       console.error('Error load data laporan:', err);
@@ -525,7 +534,7 @@ export function LaporanKinerjaTable({
         </div>
 
         {/* Action Button: + Tambah Aktivitas persis seperti screenshot */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px', marginBottom: '4px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px', marginBottom: '4px', flexWrap: 'wrap', gap: '8px' }}>
           <button
             type="button"
             onClick={() => handleOpenModal()}
@@ -557,6 +566,36 @@ export function LaporanKinerjaTable({
             <span>Isi Laporan Kinerja</span>
           </button>
 
+          {/* Grup kanan: Checkbox Hidden NIP + Cetak */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            {/* Checkbox toggle: Sembunyikan NIP Atasan */}
+            <label
+              title="Centang jika atasan (misal Lurah) tidak memiliki NIP"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                cursor: 'pointer',
+                padding: '8px 13px',
+                borderRadius: '8px',
+                border: `1.5px solid ${nipAtasanHidden ? '#f59e0b' : '#e2e8f0'}`,
+                background: nipAtasanHidden ? '#fef3c7' : '#f8fafc',
+                fontSize: '13px',
+                fontWeight: '600',
+                color: nipAtasanHidden ? '#92400e' : '#475569',
+                transition: 'all 0.15s ease',
+                userSelect: 'none',
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={nipAtasanHidden}
+                onChange={(e) => setNipAtasanHidden(e.target.checked)}
+                style={{ cursor: 'pointer', accentColor: '#d97706', width: '14px', height: '14px' }}
+              />
+              <span>{nipAtasanHidden ? '🔒 NIP Atasan Hidden' : 'Tampilkan NIP Atasan'}</span>
+            </label>
+
           <button
             type="button"
             onClick={handlePrint}
@@ -585,7 +624,9 @@ export function LaporanKinerjaTable({
             <IconFileText size={17} />
             <span>Cetak Dokumen</span>
           </button>
+          </div>
         </div>
+
       </div>
 
       {/* ========================================================
@@ -615,7 +656,7 @@ export function LaporanKinerjaTable({
       <div className="print-only" style={{ color: '#000000', fontFamily: "'Times New Roman', Times, 'Liberation Serif', serif" }}>
         {/* KOP RESMI: Logo di samping kiri, Teks terpusat di tengah dengan spacer kanan */}
         <div style={{ position: 'relative', marginBottom: '14px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 0, paddingBottom: '6px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 0, paddingBottom: '2px' }}>
             {/* Logo di kiri */}
             <div style={{ width: '90px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               {printSettings?.kopLogoUrl ? (
@@ -662,7 +703,7 @@ export function LaporanKinerjaTable({
 
           {/* Garis pemisah ganda khas KOP kedinasan: tebal di atas, tipis di bawah */}
           <hr style={{ border: 'none', borderTop: '2.5px solid #000000', margin: '0 0 2px 0' }} />
-          <hr style={{ border: 'none', borderTop: '0.75px solid #000000', margin: '0 0 14px 0' }} />
+          <hr style={{ border: 'none', borderTop: '0.75px solid #000000', margin: '0 0 8px 0' }} />
         </div>
 
         <div style={{ textAlign: 'center', marginBottom: '16px' }}>
@@ -1195,9 +1236,9 @@ export function LaporanKinerjaTable({
                   {printSettings?.ttdAtasanNama || printSettings?.ttdKananNama || 'DJOKO PURWANTO'}
                 </strong>
                 <br />
-                {!printSettings?.sembunyikanNipAtasan && (printSettings?.ttdAtasanNip || printSettings?.ttdKananNip) && !['admisi', 'admin', 'pamong', '-'].includes(String(printSettings?.ttdAtasanNip || printSettings?.ttdKananNip).toLowerCase().trim()) ? (
+                {!nipAtasanHidden && !printSettings?.sembunyikanNipAtasan && (printSettings?.ttdAtasanNip || printSettings?.ttdKananNip) && !['admisi', 'admin', 'pamong', '-'].includes(String(printSettings?.ttdAtasanNip || printSettings?.ttdKananNip).toLowerCase().trim()) ? (
                   <div style={{ fontSize: '10.5pt', fontWeight: '600', color: '#000000', marginTop: '2px' }}>
-                    NIP. {printSettings.ttdAtasanNip || printSettings.ttdKananNip}
+                    NIP. {String(printSettings.ttdAtasanNip || printSettings.ttdKananNip)}
                   </div>
                 ) : null}
               </td>
@@ -1209,11 +1250,7 @@ export function LaporanKinerjaTable({
                 <div style={{ fontSize: '11pt', fontWeight: '600', color: '#000000', marginTop: '2px' }}>
                   {dataState.jabatan?.nama || dataState.user?.jabatan || 'Pamong Kalurahan'}
                 </div>
-                {!printSettings?.sembunyikanNip && dataState.user?.nip && !['admisi', 'admin', 'pamong', '-'].includes(String(dataState.user.nip).toLowerCase().trim()) ? (
-                  <div style={{ fontSize: '10.5pt', fontWeight: '600', color: '#000000', marginTop: '2px' }}>
-                    NIP. {dataState.user.nip}
-                  </div>
-                ) : null}
+
               </td>
             </tr>
           </tbody>

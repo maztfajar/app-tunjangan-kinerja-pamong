@@ -37,6 +37,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
   const router = useRouter();
   const [user, setUser] = useState<{
     nama: string;
+    username?: string;
     nip: string;
     jabatan: string | null;
     unitKerja: string | null;
@@ -551,7 +552,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
                     {user?.nama || 'Super Administrator'}
                   </div>
                   <p style={{ fontSize: '11px', color: '#64748b', marginTop: '1px' }}>
-                    Username / Root: <span style={{ fontFamily: 'monospace', fontWeight: '600' }}>{user?.nip || 'superadmin'}</span>
+                    Username: <span style={{ fontFamily: 'monospace', fontWeight: '600' }}>{user?.username || user?.nip || 'root'}</span>
                   </p>
                   <p style={{ fontSize: '11px', color: '#7c3aed', fontWeight: '700', marginTop: '1px' }}>
                     Super Admin (Hak Akses Root)

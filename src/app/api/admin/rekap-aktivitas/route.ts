@@ -29,7 +29,7 @@ export async function GET(request: Request) {
         user: {
           select: {
             nama: true,
-            nip: true,
+            username: true,
             jabatan: true,
             unitKerja: true,
           },
@@ -38,7 +38,12 @@ export async function GET(request: Request) {
       orderBy: { waktu: 'desc' },
     });
 
-    return NextResponse.json({ tasks });
+    const mappedTasks = tasks.map((t) => ({
+      ...t,
+      user: t.user ? { ...t.user, nip: t.user.username } : t.user,
+    }));
+
+    return NextResponse.json({ tasks: mappedTasks });
   } catch (error) {
     console.error('Admin rekap aktivitas error:', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });

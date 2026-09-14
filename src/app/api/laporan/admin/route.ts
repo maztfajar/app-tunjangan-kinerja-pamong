@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
       where: { id: userId },
       select: {
         id: true,
-        nip: true,
+        username: true,
         nama: true,
         jabatan: true,
         unitKerja: true,
@@ -55,7 +55,10 @@ export async function GET(request: NextRequest) {
       pedomanPengisian: row.output.pedomanPengisian || '',
     }));
 
-    return NextResponse.json({ user, laporan });
+    return NextResponse.json({
+      user: user ? { ...user, nip: user.username } : null,
+      laporan,
+    });
   } catch (error) {
     console.error('Get admin laporan error:', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });

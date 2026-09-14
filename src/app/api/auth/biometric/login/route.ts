@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
     // Jika username disertakan, filter kredensial khusus milik username tersebut
     if (rawUsername) {
       const user = await prisma.user.findUnique({
-        where: { nip: rawUsername },
+        where: { username: rawUsername },
       });
 
       if (!user) {
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
 
       if (!userBiometrics || userBiometrics.length === 0) {
         return NextResponse.json({
-          error: `Akun ${user.nama} (${user.nip}) belum mendaftarkan kunci biometrik di perangkat ini. Silakan masuk menggunakan Password terlebih dahulu, lalu aktifkan di menu Kunci Biometrik di dalam dashboard.`,
+          error: `Akun ${user.nama} (${user.username}) belum mendaftarkan kunci biometrik di perangkat ini. Silakan masuk menggunakan Password terlebih dahulu, lalu aktifkan di menu Kunci Biometrik di dalam dashboard.`,
           needsPassword: true,
         }, { status: 400 });
       }
@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
       }));
 
       targetUserInfo = {
-        username: user.nip,
+        username: user.username,
         nama: user.nama,
       };
     }
@@ -126,16 +126,17 @@ export async function POST(req: NextRequest) {
     const user = cred.user;
 
     // 3. Verifikasi pemisahan akun (Akun Dijamin Tidak Bercampur / Tertukar)
-    if (targetUsername && targetUsername.toLowerCase() !== user.nip.trim().toLowerCase()) {
+    if (targetUsername && targetUsername.toLowerCase() !== user.username.trim().toLowerCase()) {
       return NextResponse.json({
-        error: `Kunci biometrik ini terdaftar atas nama akun "${user.nama}" (${user.nip}), bukan untuk username "${targetUsername}". Akun tidak dapat tertukar demi keamanan.`,
+        error: `Kunci biometrik ini terdaftar atas nama akun "${user.nama}" (${user.username}), bukan untuk username "${targetUsername}". Akun tidak dapat tertukar demi keamanan.`,
       }, { status: 403 });
     }
 
     // 4. Terbitkan token JWT sesi resmi
     const token = signToken({
       userId: user.id,
-      nip: user.nip,
+      username: user.username,
+      nip: user.username,
       nama: user.nama,
       role: user.role,
     });
@@ -164,7 +165,8 @@ export async function POST(req: NextRequest) {
       success: true,
       user: {
         id: user.id,
-        nip: user.nip,
+        username: user.username,
+        nip: user.username,
         nama: user.nama,
         role: user.role,
         jabatan: user.jabatan,

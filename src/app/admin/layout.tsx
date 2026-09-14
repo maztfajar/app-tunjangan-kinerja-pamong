@@ -40,6 +40,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
   const [user, setUser] = useState<{
     nama: string;
+    username?: string;
     nip: string;
     jabatan: string | null;
     unitKerja: string | null;
@@ -527,7 +528,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     {user?.nama || 'Administrator'}
                   </div>
                   <p style={{ fontSize: '11px', color: '#64748b', marginTop: '1px' }}>
-                    Username: <span style={{ fontFamily: 'monospace', fontWeight: '600' }}>{user?.nip || 'admin'}</span>
+                    Username: <span style={{ fontFamily: 'monospace', fontWeight: '600' }}>{user?.username || user?.nip || 'admin'}</span>
                   </p>
                   <p style={{ fontSize: '11px', color: '#4361ee', fontWeight: '700', marginTop: '1px' }}>
                     {user?.jabatan || 'Administrator Sistem'}

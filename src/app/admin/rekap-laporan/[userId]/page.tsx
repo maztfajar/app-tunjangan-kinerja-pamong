@@ -480,13 +480,7 @@ export default function DetailLaporanPegawaiPage() {
                 <td>:</td>
                 <td><strong>{pegawai?.nama || '-'}</strong></td>
               </tr>
-              {!printSettings?.sembunyikanNip && pegawai?.nip && (
-                <tr>
-                  <td>NIP</td>
-                  <td>:</td>
-                  <td>{pegawai.nip}</td>
-                </tr>
-              )}
+
               <tr>
                 <td>Jabatan</td>
                 <td>:</td>
@@ -540,11 +534,7 @@ export default function DetailLaporanPegawaiPage() {
             <p className="sign-name">
               {penandatanganKiri === 'ADMIN' ? (adminUser?.nama || 'Admin') : (pegawai?.nama || '-')}
             </p>
-            {penandatanganKiri === 'ADMIN' && adminUser?.nip && !printSettings?.sembunyikanNip ? (
-              <p>NIP. {adminUser.nip}</p>
-            ) : (
-              <p>{pegawai?.jabatan || 'Pamong Kalurahan'}</p>
-            )}
+            <p>{penandatanganKiri === 'ADMIN' ? (adminUser?.jabatan || 'Admin') : (pegawai?.jabatan || 'Pamong Kalurahan')}</p>
           </div>
 
           {/* Sisi Kanan: Persetujuan Atasan */}

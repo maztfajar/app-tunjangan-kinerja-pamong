@@ -1161,7 +1161,7 @@ export default function SuperAdminFormatLaporanPage() {
               {/* KOP PREVIEW — standar resmi: logo kiri absolute, teks benar-benar terpusat di tengah halaman */}
               <div style={{ position: 'relative', marginBottom: '0' }}>
                 {/* Wrapper flex: logo kiri | teks tengah | spacer kanan (sama lebar logo) */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 0, paddingBottom: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 0, paddingBottom: '2px' }}>
                   {/* Logo di kiri — posisi tengah, dinaikkan sedikit dari tengah */}
                   <div style={{ width: '80px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginTop: '-10px' }}>
                     {form.kopLogoUrl ? (
@@ -1196,10 +1196,10 @@ export default function SuperAdminFormatLaporanPage() {
                       </div>
                     )}
                     {/* Alamat — terpusat, wrap alami jika panjang (standar KOP resmi) */}
-                    <p style={{ fontSize: '8.5px', margin: '6px 0 0 0', lineHeight: 1.5 }}>
+                    <p style={{ fontSize: '8.5px', margin: '3px 0 0 0', lineHeight: 1.4 }}>
                       {form.kopAlamat || 'Alamat Kantor Lengkap'}
                     </p>
-                    <p style={{ fontSize: '8px', margin: '2px 0 0 0', lineHeight: 1.5 }}>
+                    <p style={{ fontSize: '8px', margin: '1px 0 0 0', lineHeight: 1.4 }}>
                       {form.kopKontak || 'Kontak Telepon & Pos-el'}
                     </p>
                   </div>
@@ -1210,7 +1210,7 @@ export default function SuperAdminFormatLaporanPage() {
 
                 {/* Garis pemisah KOP: dua garis — tebal di atas, tipis di bawah (standar dinas) */}
                 <hr style={{ border: 'none', borderTop: '2.5px solid #000000', margin: '0 0 2px 0' }} />
-                <hr style={{ border: 'none', borderTop: '0.75px solid #000000', margin: '0 0 12px 0' }} />
+                <hr style={{ border: 'none', borderTop: '0.75px solid #000000', margin: '0 0 8px 0' }} />
               </div>
 
               {/* JUDUL DOKUMEN PREVIEW */}

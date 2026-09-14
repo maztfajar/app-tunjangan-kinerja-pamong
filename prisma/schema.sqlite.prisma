@@ -16,7 +16,7 @@ datasource db {
 
 model User {
   id        String   @id @default(cuid())
-  nip       String   @unique
+  username  String   @unique @map("nip")
   nama      String
   password  String
   jabatan   String?
@@ -176,6 +176,9 @@ model AppSettings {
   ttdAtasanJabatan String?  @default("Panewu Pengasih")
   ttdAtasanNama    String?  @default(".................................")
   ttdAtasanNip     String?  @default(".................................")
+
+  // Serial Number Lisensi Sistem
+  serialNumber     String?
 
   updatedAt        DateTime @updatedAt
 }

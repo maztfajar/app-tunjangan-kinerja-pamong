@@ -16,7 +16,7 @@ export async function GET() {
       },
       select: {
         id: true,
-        nip: true,
+        username: true,
         nama: true,
         jabatan: true,
         unitKerja: true,
@@ -28,7 +28,12 @@ export async function GET() {
       ],
     });
 
-    return NextResponse.json({ users });
+    const mappedUsers = users.map((u) => ({
+      ...u,
+      nip: u.username,
+    }));
+
+    return NextResponse.json({ users: mappedUsers });
   } catch (error) {
     console.error('Get pejabat list error:', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });

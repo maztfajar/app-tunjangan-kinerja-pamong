@@ -65,16 +65,21 @@ export async function GET(request: Request) {
       where,
       include: {
         user: {
-          select: { nama: true, nip: true, jabatan: true },
+          select: { nama: true, username: true, jabatan: true },
         },
       },
       orderBy: { tanggal: 'desc' },
     });
 
+    const mappedPresensi = presensi.map((p) => ({
+      ...p,
+      user: p.user ? { ...p.user, nip: p.user.username } : p.user,
+    }));
+
     // Also return jam kerja settings for frontend calculations
     const jamKerja = await prisma.jamKerja.findFirst();
 
-    return NextResponse.json({ presensi, jamKerja });
+    return NextResponse.json({ presensi: mappedPresensi, jamKerja });
   } catch (error) {
     console.error('Get presensi error:', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });

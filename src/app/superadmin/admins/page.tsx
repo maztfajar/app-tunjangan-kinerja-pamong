@@ -221,7 +221,7 @@ export default function SuperAdminAdminsPage() {
           <table className="data-table">
             <thead>
               <tr>
-                <th>NIP / Username</th>
+                <th>Username</th>
                 <th>Nama Lengkap</th>
                 <th>Jabatan</th>
                 <th>Unit Kerja</th>
@@ -326,12 +326,12 @@ export default function SuperAdminAdminsPage() {
             <form onSubmit={handleCreateAdmin} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>
                 <label className="input-label" style={{ fontSize: '13px', fontWeight: '800', color: '#1e293b' }}>
-                  NIP / Username Login *
+                  Username Login *
                 </label>
                 <input
                   type="text"
                   className="input-field"
-                  placeholder="Contoh: admin2 atau 19850101..."
+                  placeholder="Contoh: admin2, budi_admin..."
                   value={form.nip}
                   onChange={(e) => setForm({ ...form, nip: e.target.value })}
                   required
@@ -523,7 +523,7 @@ export default function SuperAdminAdminsPage() {
               </div>
               <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', fontSize: '13px', color: '#475569' }}>
                 <div>
-                  Username / NIP: <b style={{ fontFamily: 'monospace', color: '#0284c7' }}>{adminToDelete.nip}</b>
+                  Username: <b style={{ fontFamily: 'monospace', color: '#0284c7' }}>{adminToDelete.nip}</b>
                 </div>
                 <div>
                   Jabatan: <b>{adminToDelete.jabatan || 'Admin'}</b>

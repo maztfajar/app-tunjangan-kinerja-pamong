@@ -87,11 +87,27 @@ fi
 
 # 5. Sinkronisasi Skema Database Prisma & Seeding Awal
 echo -e "\n${BLUE}[5/5] Sinkronisasi skema database Prisma...${NC}"
-npx prisma db push --skip-generate
-npx prisma generate
+DB_URL_VAL=$(grep -E '^[[:space:]]*DATABASE_URL=' .env | head -n 1 | cut -d '=' -f2- | tr -d '"' | tr -d "'" | tr -d '[:space:]')
 
-echo -e "${BLUE}Menyiapkan data awal (admin & pamong default)...${NC}"
-npx tsx prisma/seed.ts 2>/dev/null || npx ts-node --esm prisma/seed.ts 2>/dev/null || echo -e "${YELLOW}Data seed sudah ada atau dilewati.${NC}"
+if [[ "$DB_URL_VAL" == postgres* ]]; then
+    echo -e "${GREEN}✓ Mode PostgreSQL terdeteksi.${NC}"
+    npx prisma db push --skip-generate
+    npx prisma generate
+    echo -e "${BLUE}Menyiapkan data awal (admin & pamong default)...${NC}"
+    npx tsx prisma/seed.ts 2>/dev/null || npx ts-node --esm prisma/seed.ts 2>/dev/null || echo -e "${YELLOW}Data seed sudah ada atau dilewati.${NC}"
+else
+    echo -e "${GREEN}✓ Mode SQLite Bawaan (storage/database.sqlite) terdeteksi.${NC}"
+    mkdir -p storage
+    if [ ! -f storage/database.sqlite ] && [ -f storage/database.sqlite.default ]; then
+        cp storage/database.sqlite.default storage/database.sqlite
+        echo -e "${GREEN}✓ storage/database.sqlite berhasil disalin dari template bawaan.${NC}"
+    fi
+    mkdir -p node_modules/@prisma/client/runtime
+    [ -f node_modules/@prisma/client/runtime/library.d.mts ] && cp -n node_modules/@prisma/client/runtime/library.d.mts node_modules/@prisma/client/runtime/library.d.ts 2>/dev/null || true
+    [ -f node_modules/@prisma/client/runtime/client.d.mts ] && cp -n node_modules/@prisma/client/runtime/client.d.mts node_modules/@prisma/client/runtime/client.d.ts 2>/dev/null || true
+    [ -f node_modules/@prisma/client/runtime/index-browser.d.mts ] && cp -n node_modules/@prisma/client/runtime/index-browser.d.mts node_modules/@prisma/client/runtime/index-browser.d.ts 2>/dev/null || true
+    SQLITE_DATABASE_URL="file:./storage/database.sqlite" npx prisma generate --schema=prisma/schema.sqlite.prisma
+fi
 
 LOCAL_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
 if [ -z "$LOCAL_IP" ]; then

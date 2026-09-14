@@ -98,7 +98,7 @@ export default function RekapAktivitasPage() {
         }}
       >
         <div style={{ flex: '1 1 200px' }}>
-          <label className="input-label" style={{ fontSize: '12px' }}>Cari Nama / NIP / Perihal</label>
+          <label className="input-label" style={{ fontSize: '12px' }}>Cari Nama / Username / Perihal</label>
           <input
             type="text"
             className="input-field"
@@ -159,7 +159,7 @@ export default function RekapAktivitasPage() {
               >
                 <th style={{ padding: '14px 16px', textAlign: 'center', fontWeight: '700', fontSize: '12px', width: '50px' }}>No</th>
                 <th style={{ padding: '14px 16px', textAlign: 'left', fontWeight: '700', fontSize: '12px' }}>Nama Pegawai</th>
-                <th style={{ padding: '14px 16px', textAlign: 'left', fontWeight: '700', fontSize: '12px' }}>NIP</th>
+                <th style={{ padding: '14px 16px', textAlign: 'left', fontWeight: '700', fontSize: '12px' }}>Username</th>
                 <th style={{ padding: '14px 16px', textAlign: 'left', fontWeight: '700', fontSize: '12px' }}>Pemberi Tugas</th>
                 <th style={{ padding: '14px 16px', textAlign: 'left', fontWeight: '700', fontSize: '12px' }}>Hal / Perihal</th>
                 <th style={{ padding: '14px 16px', textAlign: 'left', fontWeight: '700', fontSize: '12px' }}>Keterangan</th>

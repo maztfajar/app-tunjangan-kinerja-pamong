@@ -11,11 +11,12 @@ export async function GET() {
 
     const user = await prisma.user.findUnique({
       where: { id: session.userId },
-      select: { id: true, nip: true, nama: true, jabatan: true, unitKerja: true, role: true },
+      select: { id: true, username: true, nama: true, jabatan: true, unitKerja: true, role: true },
     });
 
-    return NextResponse.json({ user });
-  } catch {
+    return NextResponse.json({ user: user ? { ...user, nip: user.username } : null });
+  } catch (err) {
+    console.error('Auth me error:', err);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }

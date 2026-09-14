@@ -37,6 +37,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter();
   const [user, setUser] = useState<{
     nama: string;
+    username?: string;
     nip: string;
     jabatan: string | null;
     unitKerja: string | null;
@@ -403,7 +404,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* Profil Card Pamong di Bawah Sidebar */}
         <div
           className="sidebar-profile-card"
-          data-tooltip={`${user?.nama || 'Pamong'} (${user?.nip || '-'})`}
+          data-tooltip={`${user?.nama || 'Pamong'} (${user?.username || user?.nip || '-'})`}
           style={{
             marginTop: '10px',
             marginBottom: '10px',
@@ -729,7 +730,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     {user?.nama || 'Pegawai Pamong'}
                   </div>
                   <p style={{ fontSize: '11px', color: '#64748b', marginTop: '1px' }}>
-                    Username: <span style={{ fontFamily: 'monospace', fontWeight: '600' }}>{user?.nip || '-'}</span>
+                    Username: <span style={{ fontFamily: 'monospace', fontWeight: '600' }}>{user?.username || user?.nip || '-'}</span>
                   </p>
                   <p style={{ fontSize: '11px', color: '#4361ee', fontWeight: '700', marginTop: '1px' }}>
                     {user?.jabatan || 'Pamong Kalurahan'}

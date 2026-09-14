@@ -30,7 +30,7 @@ export async function POST(request: Request) {
     // Pastikan user masih ada di database (tidak dihapus admin)
     const user = await prisma.user.findUnique({
       where: { id: payload.userId },
-      select: { id: true, nip: true, nama: true, role: true },
+      select: { id: true, username: true, nama: true, role: true },
     });
 
     if (!user) {
@@ -42,7 +42,8 @@ export async function POST(request: Request) {
     // Perbarui token (reset timer 24 jam)
     const newToken = signToken({
       userId: user.id,
-      nip: user.nip,
+      username: user.username,
+      nip: user.username,
       nama: user.nama,
       role: user.role,
     });
