@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Panduan Lengkap Instalasi & Pemeliharaan Sistem E-Kinerja Pamong</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 18mm 16mm 18mm 16mm;
+      @bottom-right {
+        content: counter(page);
+        font-size: 9pt;
+        color: #64748b;
+      }
+    }
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: #1e293b;
+      line-height: 1.55;
+      font-size: 10.5pt;
+      margin: 0;
+      padding: 0;
+      background: #fff;
+    }
+    .cover {
+      text-align: center;
+      padding: 50px 20px 40px;
+      border-bottom: 3px solid #2563eb;
+      margin-bottom: 35px;
+      page-break-after: always;
+    }
+    .cover-badge {
+      display: inline-block;
+      padding: 6px 14px;
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: 10pt;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+    }
+    .cover h1 {
+      font-size: 24pt;
+      font-weight: 900;
+      color: #0f172a;
+      line-height: 1.25;
+      margin: 0 0 12px;
+    }
+    .cover h2 {
+      font-size: 13pt;
+      font-weight: 600;
+      color: #475569;
+      margin: 0 0 25px;
+    }
+    .cover-meta {
+      font-size: 10pt;
+      color: #64748b;
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 1px solid #e2e8f0;
+      display: flex;
+      justify-content: space-around;
+    }
+    .section-title {
+      font-size: 15pt;
+      font-weight: 800;
+      color: #0f172a;
+      border-left: 5px solid #2563eb;
+      padding-left: 12px;
+      margin: 28px 0 14px;
+      page-break-after: avoid;
+    }
+    .sub-title {
+      font-size: 12pt;
+      font-weight: 700;
+      color: #1e3a8a;
+      margin: 18px 0 8px;
+      page-break-after: avoid;
+    }
+    p {
+      margin: 0 0 10px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0 18px;
+      font-size: 9.5pt;
+      page-break-inside: avoid;
+    }
+    th, td {
+      border: 1px solid #cbd5e1;
+      padding: 8px 10px;
+      text-align: left;
+    }
+    th {
+      background: #f1f5f9;
+      font-weight: 700;
+      color: #0f172a;
+    }
+    tr:nth-child(even) {
+      background: #f8fafc;
+    }
+    pre, code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    }
+    pre {
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 12px 14px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-size: 9pt;
+      line-height: 1.45;
+      margin: 10px 0 14px;
+      page-break-inside: avoid;
+    }
+    p code, li code {
+      background: #f1f5f9;
+      color: #0f172a;
+      padding: 2px 5px;
+      border-radius: 4px;
+      font-size: 9pt;
+      border: 1px solid #e2e8f0;
+    }
+    .box {
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin: 12px 0 16px;
+      font-size: 9.5pt;
+      page-break-inside: avoid;
+    }
+    .box-info {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1e40af;
+    }
+    .box-warning {
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      color: #92400e;
+    }
+    .box-success {
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      color: #166534;
+    }
+    .box-title {
+      font-weight: 800;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .steps {
+      margin: 12px 0;
+      padding-left: 20px;
+    }
+    .steps li {
+      margin-bottom: 8px;
+    }
+    .workflow {
+      display: flex;
+      gap: 10px;
+      margin: 14px 0;
+      page-break-inside: avoid;
+    }
+    .workflow-item {
+      flex: 1;
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 9pt;
+      text-align: center;
+    }
+    .workflow-item.active {
+      background: #eff6ff;
+      border-color: #93c5fd;
+      color: #1e40af;
+      font-weight: 700;
+    }
+    .page-break {
+      page-break-before: always;
+    }
+    .footer-note {
+      margin-top: 30px;
+      padding-top: 15px;
+      border-top: 1px solid #e2e8f0;
+      font-size: 8.5pt;
+      color: #64748b;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- COVER PAGE -->
+  <div class="cover">
+    <div class="cover-badge">Dokumentasi & Standar Operasional Prosedur</div>
+    <h1>PANDUAN LENGKAP PENGGUNAAN, INSTALASI & PEMELIHARAAN SISTEM</h1>
+    <h2>Aplikasi Tunjangan Kinerja & Presensi Pamong Kalurahan / Kapanewon</h2>
+    <p style="max-width: 580px; margin: 0 auto; color: #64748b; font-size: 10pt;">
+      Panduan komprehensif mencakup instalasi VPS & Web Hosting, manajemen database SQLite ke PostgreSQL Cloud, aktivasi serial number PRO, sinkronisasi tabel, Google Drive auto-backup, dan pemeliharaan server 24/7.
+    </p>
+    <div class="cover-meta">
+      <div><strong>Instansi:</strong> Kapanewon Pengasih</div>
+      <div><strong>Versi Dokumen:</strong> 2.0 (Lengkap)</div>
+      <div><strong>Tahun:</strong> 2026</div>
+    </div>
+  </div>
+
+  <!-- BAGIAN 1 -->
+  <h2 class="section-title">1. Spesifikasi & Arsitektur Sistem</h2>
+  <p>Aplikasi ini dibangun menggunakan arsitektur modern berbasis web dengan teknologi:</p>
+  <ul>
+    <li><strong>Framework:</strong> Next.js 16 (App Router), React 19, TypeScript 5.</li>
+    <li><strong>ORM & Database:</strong> Prisma ORM v6 dengan dukungan <strong>Hybrid Database</strong> (otomatis beralih antara SQLite bawaan dan PostgreSQL Cloud).</li>
+    <li><strong>Keamanan:</strong> JWT Cookie HttpOnly, Bcrypt Password Hashing, Cloudflare Turnstile Anti-bot, dan otorisasi hak akses bertingkat (Superadmin, Admin Instansi, Pegawai).</li>
+  </ul>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 25%;">Komponen</th>
+        <th style="width: 35%;">Spesifikasi Minimum</th>
+        <th style="width: 40%;">Rekomendasi Produksi</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Sistem Operasi</td>
+        <td>Linux Ubuntu 20.04 / Debian 11 / CloudLinux</td>
+        <td>Ubuntu 22.04 / 24.04 LTS</td>
+      </tr>
+      <tr>
+        <td>Node.js</td>
+        <td>Node.js versi 18.18.0</td>
+        <td>Node.js versi 20 LTS</td>
+      </tr>
+      <tr>
+        <td>RAM & CPU</td>
+        <td>1 GB RAM / 1 vCPU</td>
+        <td>2 GB RAM / 2 vCPU</td>
+      </tr>
+      <tr>
+        <td>Penyimpanan (Storage)</td>
+        <td>3 GB SSD</td>
+        <td>10 GB SSD</td>
+      </tr>
+      <tr>
+        <td>Protokol Jaringan</td>
+        <td>HTTP (Lokal Pengujian)</td>
+        <td><strong>Wajib HTTPS (SSL Aktif)</strong> agar GPS & Biometrik HP berfungsi</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- BAGIAN 2 -->
+  <h2 class="section-title">2. Konfigurasi File Environment (.env)</h2>
+  <p>Konfigurasi sistem diatur terpusat pada file <code>.env</code> di direktori root aplikasi. Seluruh pengaturan penting telah dirangkum di bawah ini:</p>
+
+  <pre><code># ==============================================================================
+# 1. DATABASE (PILIH SALAH SATU)
+# ==============================================================================
+# OPSI A: SQLite Bawaan (Biarkan kosong, otomatis memakai storage/database.sqlite)
+DATABASE_URL=""
+
+# OPSI B: PostgreSQL Cloud (Sumopod / Supabase / Neon / Local VPS)
+# Contoh Sumopod (Gunakan URL Tab Direct Connection Port 5432):
+# DATABASE_URL="postgresql://uazuSleyutH953G5A.jkt1_003:b56aabd50b51c19d747f830f@pgsql-dbas-jkt1-003.sumobase.my.id:5432/db658b2889efac70aa"
+
+# ==============================================================================
+# 2. KEAMANAN & AUTENTIKASI (WAJIB DIISI)
+# ==============================================================================
+# Token rahasia sesi login (minimal 32 karakter acak kuat)
+JWT_SECRET="isi-dengan-kombinasi-huruf-angka-acak-minimal-32-karakter"
+
+# Kredensial Super Administrator (Root)
+SUPERADMIN_USER="root"
+SUPERADMIN_PASS="root12345"
+
+# ==============================================================================
+# 3. PENGATURAN KANTOR & JAM KERJA
+# ==============================================================================
+NEXT_PUBLIC_APP_NAME="Absensi & Tunjangan Kinerja Pamong"
+NEXT_PUBLIC_DEFAULT_LAT="-7.841817942758396"
+NEXT_PUBLIC_DEFAULT_LNG="110.1685866543569"
+JAM_MASUK="07:30"
+JAM_PULANG="15:45"</code></pre>
+
+  <!-- BAGIAN 3 -->
+  <div class="page-break"></div>
+  <h2 class="section-title">3. Manajemen Lisensi & Serial Number (Fitur PRO)</h2>
+  <p>Aplikasi dilengkapi pengaman lisensi bertingkat untuk membedakan mode Standar dan mode PRO.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Fitur Aplikasi</th>
+        <th style="text-align: center;">Mode Standar</th>
+        <th style="text-align: center;">Mode PRO</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Presensi Online, Titik GPS, & Foto Selfie</td>
+        <td style="text-align: center;">✅ Aktif</td>
+        <td style="text-align: center;">✅ Aktif</td>
+      </tr>
+      <tr>
+        <td>Laporan Kinerja Pamong Harian & Bulanan</td>
+        <td style="text-align: center;">✅ Aktif</td>
+        <td style="text-align: center;">✅ Aktif</td>
+      </tr>
+      <tr>
+        <td>Perhitungan Otomatis Rekapitulasi Tukin</td>
+        <td style="text-align: center;">✅ Aktif</td>
+        <td style="text-align: center;">✅ Aktif</td>
+      </tr>
+      <tr>
+        <td><strong>Auto-Backup Google Drive (Tiap Pukul 00:00)</strong></td>
+        <td style="text-align: center; color: #dc2626;">❌ Terkunci</td>
+        <td style="text-align: center; color: #16a34a; font-weight: 700;">✅ Aktif</td>
+      </tr>
+      <tr>
+        <td><strong>Fitur Restore / Pemulihan Database Lengkap</strong></td>
+        <td style="text-align: center; color: #dc2626;">❌ Terkunci</td>
+        <td style="text-align: center; color: #16a34a; font-weight: 700;">✅ Aktif</td>
+      </tr>
+      <tr>
+        <td><strong>Presensi Sidik Jari (Biometrik WebAuthn HP)</strong></td>
+        <td style="text-align: center; color: #dc2626;">❌ Terkunci</td>
+        <td style="text-align: center; color: #16a34a; font-weight: 700;">✅ Aktif</td>
+      </tr>
+      <tr>
+        <td><strong>Geofence Radius Presisi Khusus Kantor</strong></td>
+        <td style="text-align: center; color: #dc2626;">❌ Terkunci</td>
+        <td style="text-align: center; color: #16a34a; font-weight: 700;">✅ Aktif</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="box box-info">
+    <div class="box-title">🔑 Format Serial Number Lisensi Resmi</div>
+    Serial number memiliki format baku: <code>TUKIN-PRO-XXXX-XXXX-XXXX</code> (Contoh: <code>TUKIN-PRO-9842-7105-3381</code>).
+  </div>
+
+  <h3 class="sub-title">Cara Melakukan Aktivasi Lisensi PRO di Aplikasi:</h3>
+  <ol class="steps">
+    <li>Buka browser dan login ke aplikasi sebagai <strong>Super Admin</strong>.</li>
+    <li>Buka menu samping: <strong>Super Admin</strong> → <strong>Pengaturan Sistem</strong> / <strong>Lisensi</strong>.</li>
+    <li>Pada formulir <em>Serial Number Lisensi</em>, masukkan kode serial number PRO Anda.</li>
+    <li>Klik tombol <strong>Aktivasi Lisensi</strong>.</li>
+    <li>Sistem langsung memvalidasi checksum keamanan dan status lisensi akan berubah menjadi <strong>PRO (Aktif)</strong> seketika. Seluruh fitur Cloud Backup, Restore, dan Biometrik langsung terbuka.</li>
+  </ol>
+
+  <!-- BAGIAN 4 -->
+  <h2 class="section-title">4. Panduan Instalasi di VPS Linux (Ubuntu / Debian)</h2>
+  <p>Instalasi di VPS merupakan metode terbaik agar aplikasi berjalan 24 jam non-stop dengan performa maksimal.</p>
+
+  <h3 class="sub-title">Metode Otomatis 1-Klik (Script <code>vps-install.sh</code>)</h3>
+  <p>Anda cukup mengunggah folder aplikasi ke VPS lalu menjalankan satu perintah script berikut:</p>
+
+  <pre><code>cd /opt/ekinerja
+chmod +x vps-install.sh
+bash vps-install.sh</code></pre>
+
+  <div class="box box-success">
+    <div class="box-title">⚡ Apa yang Dikerjakan Otomatis oleh Script Ini?</div>
+    <ul style="margin: 4px 0 0; padding-left: 18px;">
+      <li>Memeriksa dan menginstal <strong>Node.js 20 LTS</strong> jika VPS masih baru.</li>
+      <li>Menginstal Process Manager <strong>PM2</strong> sehingga aplikasi berjalan terus di background meskipun terminal SSH ditutup.</li>
+      <li>Menginstal dependensi via <code>npm ci</code> dan mensinkronkan database Prisma.</li>
+      <li>Membangun bundle produksi <code>npm run build</code>.</li>
+      <li>Mendaftarkan aplikasi ke startup sistem Linux (otomatis hidup jika VPS direstart).</li>
+      <li>Memasang jadwal Cron Job backup Google Drive harian setiap pukul <strong>00:00 WIB</strong>.</li>
+    </ul>
+  </div>
+
+  <h3 class="sub-title">Konfigurasi Nginx & SSL HTTPS (Wajib untuk GPS & Biometrik)</h3>
+  <pre><code># 1. Install Nginx & Certbot
+sudo apt install -y nginx certbot python3-certbot-nginx
+
+# 2. Konfigurasi Nginx (/etc/nginx/sites-available/ekinerja)
+server {
+    listen 80;
+    server_name kinerja.desa.id;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+
+# 3. Aktifkan dan pasang SSL Gratis:
+sudo ln -s /etc/nginx/sites-available/ekinerja /etc/nginx/sites-enabled/
+sudo systemctl restart nginx
+sudo certbot --nginx -d kinerja.desa.id</code></pre>
+
+  <!-- BAGIAN 5 -->
+  <div class="page-break"></div>
+  <h2 class="section-title">5. Panduan Instalasi di Web Hosting (cPanel)</h2>
+  <p>Jika instansi menggunakan Web Hosting cPanel yang memiliki fitur <strong>Setup Node.js App</strong> (CloudLinux Passenger):</p>
+
+  <ol class="steps">
+    <li><strong>Kompresi File:</strong> Kompres folder aplikasi ke <code>aplikasi.zip</code> (tanpa menyertakan folder <code>node_modules</code> dan <code>.next</code>).</li>
+    <li><strong>Upload ke cPanel:</strong> Buka cPanel File Manager, upload file ZIP ke folder di luar <code>public_html</code> (misal: <code>/home/user/app-ekinerja</code>), lalu klik <em>Extract</em>.</li>
+    <li><strong>Setup Node.js App di cPanel:</strong>
+      <ul>
+        <li>Node.js version: Pilih versi <strong>18.x</strong> atau <strong>20.x</strong>.</li>
+        <li>Application mode: Pilih <strong>Production</strong>.</li>
+        <li>Application root: Isi nama folder (misal: <code>app-ekinerja</code>).</li>
+        <li>Application startup file: Isi dengan <code>server.js</code>.</li>
+        <li>Klik <strong>Create</strong>.</li>
+      </ul>
+    </li>
+    <li><strong>Install & Build via Terminal cPanel:</strong>
+      <pre><code># Masuk virtual environment cPanel (salin dari halaman Node.js app):
+source /home/user/nodevenv/app-ekinerja/20/bin/activate && cd /home/user/app-ekinerja
+
+# Install & Build:
+npm install --omit=dev
+npm run build</code></pre>
+    </li>
+    <li>Klik tombol <strong>Restart</strong> pada aplikasi Node.js Anda di cPanel.</li>
+  </ol>
+
+  <!-- BAGIAN 6 -->
+  <h2 class="section-title">6. Konfigurasi Database (SQLite Bawaan vs PostgreSQL Cloud)</h2>
+
+  <h3 class="sub-title">A. Menggunakan SQLite Bawaan (Nol Biaya & Praktis)</h3>
+  <p>Kosongkan <code>DATABASE_URL=""</code> di file <code>.env</code>. Seluruh data otomatis tersimpan di <code>storage/database.sqlite</code>. Mode ini langsung bekerja tanpa konfigurasi server database tambahan.</p>
+
+  <h3 class="sub-title">B. Menggunakan PostgreSQL Cloud (Contoh: Sumopod / Supabase)</h3>
+  <p>Sistem aplikasi otomatis mendeteksi jika URL diawali dengan <code>postgresql://</code> atau <code>postgres://</code>.</p>
+
+  <div class="box box-warning">
+    <div class="box-title">💡 Petunjuk Penting Khusus Sumopod (Sesuai Dashboard Sumopod):</div>
+    Pada dashboard Sumopod terdapat 3 tab koneksi:
+    <br>1. <strong>Transaction Pooler (Port 6432)</strong>
+    <br>2. <strong>Session Pooler</strong>
+    <br>3. <strong>Direct Connection (Port 5432)</strong>
+    <br><br>
+    <strong>Sangat Disarankan:</strong> Pilih tab <strong>Direct Connection (Port 5432)</strong>. Prisma ORM dan proses pembuatan tabel otomatis (<code>npx prisma db push</code>) berjalan paling stabil melalui Direct Connection tanpa kendala pooling PgBouncer.
+  </div>
+
+  <p>Contoh Connection String yang disalin ke <code>.env</code>:</p>
+  <pre><code>DATABASE_URL="postgresql://uazuSleyutH953G5A.jkt1_003:b56aabd50b51c19d747f830f@pgsql-dbas-jkt1-003.sumobase.my.id:5432/db658b2889efac70aa"</code></pre>
+
+  <h3 class="sub-title">Perintah Sinkronisasi & Pembuatan Tabel:</h3>
+  <ul>
+    <li>Untuk PostgreSQL Cloud (Sumopod/Supabase): <code>npx prisma db push</code></li>
+    <li>Untuk SQLite Bawaan: <code>SQLITE_DATABASE_URL="file:./storage/database.sqlite" npx prisma db push --schema=prisma/schema.sqlite.prisma</code></li>
+    <li>Atau gunakan wizard interaktif: <code>node setup-db.js</code></li>
+  </ul>
+
+  <!-- BAGIAN 7 -->
+  <div class="page-break"></div>
+  <h2 class="section-title">7. Panduan Migrasi Database dari SQLite ke Cloud (Sumopod/Supabase)</h2>
+  <p>Jika pada awalnya aplikasi berjalan menggunakan SQLite lokal dan sudah memiliki data (pegawai, absensi, kegiatan), Anda dapat memindahkan seluruh data tersebut ke Sumopod/Supabase <strong>secara utuh tanpa kehilangan 1 data pun</strong>:</p>
+
+  <div class="workflow">
+    <div class="workflow-item"><strong>1. SQLite Aktif</strong><br>Unduh File Backup JSON dari Superadmin</div>
+    <div class="workflow-item"><strong>2. Update .env</strong><br>Isi DATABASE_URL Sumopod</div>
+    <div class="workflow-item"><strong>3. Sinkron Tabel</strong><br>Jalankan npx prisma db push</div>
+    <div class="workflow-item active"><strong>4. Restore JSON</strong><br>Pulihkan Database di Web Superadmin</div>
+  </div>
+
+  <h3 class="sub-title">Langkah-Langkah Praktis Migrasi:</h3>
+  <ol class="steps">
+    <li><strong>Unduh Cadangan Lengkap:</strong>
+      <br>Saat aplikasi masih memakai SQLite, buka web browser dan login sebagai <strong>Super Admin</strong>.
+      <br>Buka menu <strong>Super Admin</strong> → <strong>Kelola Database</strong> (`/superadmin/database`).
+      <br>Pada kartu *Export & Backup Database*, klik tombol <strong>📥 Unduh Backup (.json)</strong> dan simpan file di laptop Anda.
+    </li>
+    <li><strong>Ganti URL di File <code>.env</code>:</strong>
+      <br>Buka file <code>.env</code> di server Anda, ubah baris <code>DATABASE_URL</code> menjadi Connection String dari Sumopod:
+      <pre><code>DATABASE_URL="postgresql://uazuSleyutH953G5A.jkt1_003:b56aabd50b51c19d747f830f@pgsql-dbas-jkt1-003.sumobase.my.id:5432/db658b2889efac70aa"</code></pre>
+    </li>
+    <li><strong>Inisialisasi Tabel di Sumopod:</strong>
+      <br>Buka terminal VPS di folder aplikasi lalu jalankan:
+      <pre><code>npx prisma db push</code></pre>
+      <em>(Dalam beberapa detik seluruh tabel otomatis terbuat di server Sumopod).</em>
+    </li>
+    <li><strong>Restart Aplikasi:</strong>
+      <br>Jalankan perintah: <code>pm2 restart tukin-pamong</code> (atau klik restart di cPanel).
+    </li>
+    <li><strong>Pulihkan Data ke Database Baru:</strong>
+      <br>Buka kembali web browser, login sebagai Super Admin, masuk ke menu <strong>Kelola Database</strong>.
+      <br>Di bagian <em>Restore / Pemulihan Database</em>, klik <strong>Pilih File Backup (.json)</strong> dan pilih file yang diunduh pada Langkah 1 tadi.
+      <br>Klik <strong>Pulihkan Database</strong>.
+      <br><strong>Selesai!</strong> Seluruh data pegawai, presensi, aktivitas, dan master data sudah berpindah dan aktif di Sumopod.
+    </li>
+  </ol>
+
+  <!-- BAGIAN 8 -->
+  <h2 class="section-title">8. Panduan Auto-Backup Google Drive (Fitur PRO)</h2>
+  <p>Fitur ini otomatis mencadangkan seluruh data setiap malam pukul <strong>00:00 WIB</strong> ke Google Drive Anda dengan retensi otomatis 7 hari.</p>
+
+  <h3 class="sub-title">A. Pengambilan Kredensial OAuth2 Google:</h3>
+  <ol class="steps">
+    <li>Buka <a href="https://console.cloud.google.com/">Google Cloud Console</a> → Buat project baru → Aktifkan <strong>Google Drive API</strong>.</li>
+    <li>Di menu <em>Credentials</em>, buat <strong>OAuth Client ID</strong> tipe <em>Web Application</em> dengan Authorized redirect URI: <code>https://developers.google.com/oauthplayground</code>. Catat <strong>Client ID</strong> & <strong>Client Secret</strong>.</li>
+    <li>Buka <a href="https://developers.google.com/oauthplayground/">OAuth 2.0 Playground</a> → Masukkan Client ID & Secret di menu gerigi ⚙️.</li>
+    <li>Pilih scope <code>https://www.googleapis.com/auth/drive</code> → Klik <em>Authorize APIs</em> → Login akun Google Anda.</li>
+    <li>Klik <em>Exchange authorization code for tokens</em> dan salin <strong>Refresh Token</strong>.</li>
+  </ol>
+
+  <h3 class="sub-title">B. Konfigurasi di Halaman Super Admin Database:</h3>
+  <ol class="steps">
+    <li>Login Super Admin → Buka <strong>Kelola Database</strong> → Klik <strong>⚙️ Pengaturan Google Drive & Cron</strong>.</li>
+    <li>Masukkan Client ID, Client Secret, dan Refresh Token.</li>
+    <li><strong>Pemilih Folder Interaktif:</strong> Klik tombol <strong>📂 Pilih Folder</strong>. Sistem akan membaca Google Drive Anda dan menampilkan daftar folder. Anda bisa memilih folder tujuan atau memilih <strong>🏠 My Drive (Root)</strong>.</li>
+    <li>Klik <strong>🔍 Uji Koneksi Google</strong>, lalu klik <strong>Simpan Pengaturan</strong>.</li>
+    <li>Tekan tombol <strong>☁️ Backup Sekarang ke Drive</strong> untuk melakukan pengujian langsung.</li>
+  </ol>
+
+  <!-- BAGIAN 9 -->
+  <div class="page-break"></div>
+  <h2 class="section-title">9. Panduan Restart, Pemeliharaan & Troubleshooting</h2>
+
+  <h3 class="sub-title">A. Daftar Perintah Restart Berdasarkan Lingkungan:</h3>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 30%;">Lingkungan</th>
+        <th style="width: 40%;">Cara Restart</th>
+        <th style="width: 30%;">Keterangan</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>VPS Linux (PM2)</strong></td>
+        <td><code>pm2 restart tukin-pamong</code></td>
+        <td>Aplikasi restart dalam 1-2 detik, tetap jalan di background.</td>
+      </tr>
+      <tr>
+        <td><strong>VPS Zero-Downtime Reload</strong></td>
+        <td><code>pm2 reload tukin-pamong</code></td>
+        <td>Digunakan setelah update kode tanpa mengganggu user aktif.</td>
+      </tr>
+      <tr>
+        <td><strong>cPanel Hosting</strong></td>
+        <td>Klik tombol <strong>Restart</strong> pada menu <em>Setup Node.js App</em></td>
+        <td>Melalui antarmuka grafis cPanel.</td>
+      </tr>
+      <tr>
+        <td><strong>Terminal Manual (Dev)</strong></td>
+        <td>Tekan <code>Ctrl + C</code> lalu jalankan <code>bash start.sh</code></td>
+        <td>Mode pengujian lokal.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3 class="sub-title">B. Perintah Penting Manajemen PM2 di VPS:</h3>
+  <pre><code># Melihat status dan penggunaan RAM/CPU:
+pm2 status
+
+# Melihat log aktivitas sistem secara langsung (live output):
+pm2 logs tukin-pamong
+
+# Melihat 150 baris log error terakhir:
+pm2 logs tukin-pamong --err --lines 150
+
+# Menghentikan sementara aplikasi:
+pm2 stop tukin-pamong
+
+# Menyalakan kembali aplikasi:
+pm2 start tukin-pamong</code></pre>
+
+  <h3 class="sub-title">C. Panduan Troubleshooting Masalah Umum:</h3>
+
+  <div class="box box-warning">
+    <div class="box-title">1. Masalah: Port 3000 Bentrok (Port already in use)</div>
+    Jika aplikasi tidak bisa menyala karena port 3000 sedang terkunci oleh proses lain:
+    <pre><code>sudo lsof -i :3000
+# Matikan proses tersebut:
+sudo kill -9 &lt;PID_ANGKA&gt;
+pm2 restart tukin-pamong</code></pre>
+  </div>
+
+  <div class="box box-warning">
+    <div class="box-title">2. Masalah: "Permission denied" pada file SQLite</div>
+    Jika menggunakan SQLite bawaan dan muncul error izin tulis pada folder storage:
+    <pre><code>chmod -R 775 storage/</code></pre>
+  </div>
+
+  <div class="box box-warning">
+    <div class="box-title">3. Masalah: GPS Presensi dan Biometrik Tidak Muncul di HP</div>
+    Browser smartphone memblokir akses sensor GPS dan WebAuthn jika koneksi belum menggunakan HTTPS.
+    <br><strong>Solusi:</strong> Pastikan domain telah memiliki sertifikat SSL aktif (jalankan <code>sudo certbot --nginx</code> di VPS).
+  </div>
+
+  <div class="footer-note">
+    <strong>Sistem Informasi Manajemen Kinerja & Absensi Pamong</strong><br>
+    Kapanewon Pengasih, Kabupaten Kulon Progo, D.I. Yogyakarta — Tahun 2026<br>
+    Dokumen ini merupakan panduan resmi pemeliharaan & pengoperasian teknis.
+  </div>
+
+</body>
+</html>

@@ -5,6 +5,7 @@ import { Fragment, useCallback, useEffect, useMemo, useState, useRef } from 'rea
 import { useRouter, useSearchParams } from 'next/navigation';
 import { InputKinerjaModal } from './InputKinerjaModal';
 import { IconFileText, IconEdit, IconTrash } from '@/components/ui/Icons';
+import KopSurat from '@/components/cetak/KopSurat';
 
 export interface OutputItem {
   id: number;
@@ -654,57 +655,8 @@ export function LaporanKinerjaTable({
           PRINT VIEW: KOP SURAT KALURAHAN & BIODATA PAMONG
          ======================================================== */}
       <div className="print-only" style={{ color: '#000000', fontFamily: "'Times New Roman', Times, 'Liberation Serif', serif" }}>
-        {/* KOP RESMI: Logo di samping kiri, Teks terpusat di tengah dengan spacer kanan */}
-        <div style={{ position: 'relative', marginBottom: '14px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 0, paddingBottom: '2px' }}>
-            {/* Logo di kiri */}
-            <div style={{ width: '90px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              {printSettings?.kopLogoUrl ? (
-                <img
-                  src={printSettings.kopLogoUrl}
-                  alt="Logo Kop"
-                  style={{ width: '75px', height: '75px', objectFit: 'contain' }}
-                />
-              ) : (
-                <div style={{ width: '75px', height: '75px' }} />
-              )}
-            </div>
-
-            {/* Teks KOP — Terpusat di tengah halaman */}
-            <div style={{ flex: 1, textAlign: 'center', padding: '0 8px', minWidth: 0 }}>
-              <h2 style={{ fontSize: '13pt', fontWeight: 'bold', margin: '0 0 2px 0', textTransform: 'uppercase', color: '#000000', letterSpacing: '0.5px', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.2 }}>
-                {printSettings?.kopNamaPemda || 'PEMERINTAH KABUPATEN KULON PROGO'}
-              </h2>
-              <h1 style={{ fontSize: '15pt', fontWeight: 'bold', margin: '2px 0 3px 0', textTransform: 'uppercase', color: '#000000', letterSpacing: '0.5px', fontFamily: "'Times New Roman', Times, serif", lineHeight: 1.2, whiteSpace: 'pre-line' }}>
-                {printSettings?.kopNamaInstansi || 'KALURAHAN KARANGSARI, KAPANEWON PENGASIH'}
-              </h1>
-              {printSettings?.kopAksaraUrl && (
-                <div style={{ textAlign: 'center', margin: '3px 0 4px 0' }}>
-                  <img
-                    src={printSettings.kopAksaraUrl}
-                    alt="Aksara Jawa"
-                    style={{ height: '36px', maxWidth: '85%', objectFit: 'contain', display: 'inline-block' }}
-                  />
-                </div>
-              )}
-              <p style={{ fontSize: '9.5pt', margin: '4px 0 0 0', color: '#000000', lineHeight: 1.35, fontWeight: 'normal', fontFamily: "'Times New Roman', Times, serif" }}>
-                {printSettings?.kopAlamat || 'Jl. Tentara Pelajar No.05, Kopat, Karangsari, Pengasih, Kulon Progo, DIY 55652'}
-              </p>
-              {printSettings?.kopKontak && (
-                <p style={{ fontSize: '9pt', margin: '1px 0 0 0', color: '#000000', lineHeight: 1.35, fontWeight: 'normal', fontFamily: "'Times New Roman', Times, serif" }}>
-                  {printSettings.kopKontak}
-                </p>
-              )}
-            </div>
-
-            {/* Spacer kanan — sama lebar kolom logo agar teks benar-benar simetris di tengah halaman */}
-            <div style={{ width: '90px', flexShrink: 0 }} />
-          </div>
-
-          {/* Garis pemisah ganda khas KOP kedinasan: tebal di atas, tipis di bawah */}
-          <hr style={{ border: 'none', borderTop: '2.5px solid #000000', margin: '0 0 2px 0' }} />
-          <hr style={{ border: 'none', borderTop: '0.75px solid #000000', margin: '0 0 8px 0' }} />
-        </div>
+        {/* KOP Surat Resmi Standar Format Laporan */}
+        <KopSurat settings={printSettings} mode="print" />
 
         <div style={{ textAlign: 'center', marginBottom: '16px' }}>
           <h3 className="laporan-doc-title">

@@ -41,11 +41,14 @@ export default function TurnstileWidget({ onVerify, onExpire, onError }: Turnsti
   const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '1x00000000000000000000AA';
 
   const onVerifyRef = useRef(onVerify);
-  onVerifyRef.current = onVerify;
   const onExpireRef = useRef(onExpire);
-  onExpireRef.current = onExpire;
   const onErrorRef = useRef(onError);
-  onErrorRef.current = onError;
+
+  useEffect(() => {
+    onVerifyRef.current = onVerify;
+    onExpireRef.current = onExpire;
+    onErrorRef.current = onError;
+  });
 
   useEffect(() => {
     mountTimeRef.current = Date.now();

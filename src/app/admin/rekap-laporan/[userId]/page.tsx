@@ -3,6 +3,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import KopSurat from '@/components/cetak/KopSurat';
+import PrintPreviewModal from '@/components/cetak/PrintPreviewModal';
 
 interface LaporanItem {
   id: string;
@@ -34,6 +36,7 @@ export default function DetailLaporanPegawaiPage() {
   const [loading, setLoading] = useState(true);
   const [adminUser, setAdminUser] = useState<{ nama: string; nip: string; jabatan?: string | null } | null>(null);
   const [penandatanganKiri, setPenandatanganKiri] = useState<'PEGAWAI' | 'ADMIN'>('PEGAWAI');
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [printSettings, setPrintSettings] = useState<any>(null);
 
   const fetchData = useCallback(async () => {
@@ -235,6 +238,28 @@ export default function DetailLaporanPegawaiPage() {
                 <option value="ADMIN">🛡️ Admin Pencetak ({adminUser?.nama || 'Admin'})</option>
               </select>
             </div>
+            <button
+              type="button"
+              onClick={() => setShowPreviewModal(true)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '10px 18px',
+                borderRadius: '8px',
+                border: '1.5px solid #6366f1',
+                background: '#eef2ff',
+                color: '#4338ca',
+                fontSize: '13px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                boxShadow: '0 1px 3px rgba(99,102,241,0.15)',
+                transition: 'all 0.15s ease',
+              }}
+              title="Lihat Pratinjau Lembar Cetak Ber-KOP Resmi"
+            >
+              <span>📄 Pratinjau Cetak</span>
+            </button>
             <button
               onClick={handlePrint}
               className="btn-primary"
@@ -444,27 +469,8 @@ export default function DetailLaporanPegawaiPage() {
 
       {/* ======= PRINT VIEW (only visible when printing) ======= */}
       <div className="print-document">
-        {/* Kop Surat */}
-        <div className="print-header">
-          {printSettings?.kopLogoUrl ? (
-            <img src={printSettings.kopLogoUrl} alt="Logo Kop" className="print-header-logo" />
-          ) : (
-            <div style={{ width: '72px', height: '72px' }} />
-          )}
-          <div className="print-header-text">
-            <h1>{printSettings?.kopNamaPemda || 'Pemerintah Kabupaten Kulon Progo'}</h1>
-            <h2>{printSettings?.kopNamaInstansi || 'Kapanewon Pengasih'}</h2>
-            {printSettings?.kopAksaraUrl && (
-              <div style={{ textAlign: 'center', margin: '3px 0 5px 0' }}>
-                <img src={printSettings.kopAksaraUrl} alt="Aksara Jawa" style={{ height: '36px', maxWidth: '90%', objectFit: 'contain', display: 'inline-block' }} />
-              </div>
-            )}
-            <p>{printSettings?.kopAlamat || 'Jl. Pengasih No. 2, Pengasih, Kulon Progo, DIY 55652'}</p>
-            <p>{printSettings?.kopKontak || 'Telp. (0274) 773422'}</p>
-          </div>
-          {/* Spacer kanan agar teks KOP benar-benar presisi di tengah halaman */}
-          <div style={{ width: '72px', flexShrink: 0 }} />
-        </div>
+        {/* Kop Surat Resmi Standar Format Laporan */}
+        <KopSurat settings={printSettings} mode="print" />
 
         {/* Judul Dokumen */}
         <div className="print-title">
@@ -495,17 +501,17 @@ export default function DetailLaporanPegawaiPage() {
           </table>
         </div>
 
-        {/* Tabel Kinerja */}
+        {/* Tabel Laporan */}
         <table className="print-table">
           <thead>
             <tr>
               <th style={{ width: '30px' }}>No</th>
-              <th>Bulan</th>
-              <th>Rencana Kegiatan</th>
-              <th>Output</th>
-              <th>Target</th>
-              <th>Capaian</th>
-              <th>Keterangan Pelaksanaan Kinerja</th>
+              <th style={{ width: '80px' }}>Bulan</th>
+              <th>Rencana Kinerja</th>
+              <th>Output Kegiatan</th>
+              <th style={{ width: '60px' }}>Target</th>
+              <th style={{ width: '60px' }}>Capaian</th>
+              <th>Keterangan</th>
               <th>Pedoman Pengisian</th>
             </tr>
           </thead>
@@ -550,6 +556,92 @@ export default function DetailLaporanPegawaiPage() {
           </div>
         </div>
       </div>
+
+      {/* MODAL PRATINJAU CETAK (LIVE PREVIEW SESUAI TEMPLATE SUPERADMIN) */}
+      <PrintPreviewModal
+        isOpen={showPreviewModal}
+        onClose={() => setShowPreviewModal(false)}
+        onPrint={handlePrint}
+        title="Laporan Rekapitulasi Kinerja Pamong"
+        subtitle={`Pegawai: ${pegawai?.nama || '-'} (${pegawai?.nip || '-'})`}
+        settings={printSettings}
+        customTtd={
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '28px', fontSize: '10pt', pageBreakInside: 'avoid' }}>
+            <div style={{ textAlign: 'center', minWidth: '180px' }}>
+              <p style={{ margin: 0 }}>{printSettings?.ttdJudulKiri || 'Yang Membuat Laporan'},</p>
+              <div style={{ height: '48px' }} />
+              <p style={{ margin: 0, fontWeight: 'bold', textDecoration: 'underline' }}>
+                {penandatanganKiri === 'ADMIN' ? (adminUser?.nama || 'Admin') : (pegawai?.nama || '-')}
+              </p>
+              <p style={{ margin: '2px 0 0', fontSize: '9pt', color: '#475569' }}>
+                {penandatanganKiri === 'ADMIN' ? (adminUser?.jabatan || 'Admin') : (pegawai?.jabatan || 'Pamong Kalurahan')}
+              </p>
+            </div>
+
+            <div style={{ textAlign: 'center', minWidth: '180px' }}>
+              <p style={{ margin: 0 }}>{printSettings?.ttdTempat || 'Pengasih'}, {today}</p>
+              <p style={{ margin: '2px 0 0' }}>{printSettings?.ttdAtasanStatus || 'Mengetahui,'}</p>
+              <p style={{ margin: '2px 0 0', fontWeight: 'bold' }}>{printSettings?.ttdAtasanJabatan || 'Panewu Pengasih'}</p>
+              <div style={{ height: '48px' }} />
+              <p style={{ margin: 0, fontWeight: 'bold', textDecoration: 'underline' }}>
+                {printSettings?.ttdAtasanNama || '.................................'}
+              </p>
+              {!printSettings?.sembunyikanNipAtasan && printSettings?.ttdAtasanNip ? (
+                <p style={{ margin: '2px 0 0', fontSize: '9pt' }}>NIP. {printSettings.ttdAtasanNip}</p>
+              ) : null}
+            </div>
+          </div>
+        }
+      >
+        <div style={{ fontSize: '10pt', marginBottom: '14px' }}>
+          <table style={{ borderCollapse: 'collapse', width: '100%', marginBottom: '12px' }}>
+            <tbody>
+              <tr>
+                <td style={{ width: '100px', padding: '2px 0' }}>Nama Pegawai</td>
+                <td style={{ width: '10px' }}>:</td>
+                <td><strong>{pegawai?.nama || '-'}</strong></td>
+              </tr>
+              <tr>
+                <td style={{ padding: '2px 0' }}>NIP</td>
+                <td>:</td>
+                <td>{pegawai?.nip || '-'}</td>
+              </tr>
+              <tr>
+                <td style={{ padding: '2px 0' }}>Jabatan</td>
+                <td>:</td>
+                <td>{pegawai?.jabatan || '-'}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '8.5pt' }}>
+            <thead>
+              <tr style={{ background: '#f1f5f9' }}>
+                <th style={{ border: '1px solid #000', padding: '4px', width: '28px', textAlign: 'center' }}>No</th>
+                <th style={{ border: '1px solid #000', padding: '4px', width: '75px' }}>Bulan</th>
+                <th style={{ border: '1px solid #000', padding: '4px' }}>Rencana Kinerja</th>
+                <th style={{ border: '1px solid #000', padding: '4px' }}>Output Kegiatan</th>
+                <th style={{ border: '1px solid #000', padding: '4px', width: '45px', textAlign: 'center' }}>Target</th>
+                <th style={{ border: '1px solid #000', padding: '4px', width: '45px', textAlign: 'center' }}>Capaian</th>
+                <th style={{ border: '1px solid #000', padding: '4px' }}>Keterangan</th>
+              </tr>
+            </thead>
+            <tbody>
+              {laporan.map((l, i) => (
+                <tr key={l.id}>
+                  <td style={{ border: '1px solid #000', padding: '3px 4px', textAlign: 'center' }}>{i + 1}</td>
+                  <td style={{ border: '1px solid #000', padding: '3px 4px' }}>{formatBulan(l.bulan)}</td>
+                  <td style={{ border: '1px solid #000', padding: '3px 4px' }}>{l.rencana}</td>
+                  <td style={{ border: '1px solid #000', padding: '3px 4px' }}>{l.output}</td>
+                  <td style={{ border: '1px solid #000', padding: '3px 4px', textAlign: 'center' }}>{l.target}</td>
+                  <td style={{ border: '1px solid #000', padding: '3px 4px', textAlign: 'center' }}>{l.capaian || '-'}</td>
+                  <td style={{ border: '1px solid #000', padding: '3px 4px' }}>{l.keterangan || '-'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </PrintPreviewModal>
     </>
   );
 }

@@ -190,6 +190,19 @@ model AppSettings {
   // Serial Number Lisensi Sistem
   serialNumber     String?  @db.Text
 
+  // Otomatisasi Backup Google Drive (Fitur PRO)
+  gdriveClientId       String?  @db.Text
+  gdriveClientSecret   String?  @db.Text
+  gdriveRefreshToken   String?  @db.Text
+  gdriveFolderId       String?  @db.Text
+  gdriveFolderName     String?  @db.Text
+  gdriveCronSecret     String?  @default("backup-secret-key")
+  lastBackupAt         DateTime?
+  lastBackupStatus     String?  @db.Text
+  lastBackupFileName   String?  @db.Text
+  lastBackupFileUrl    String?  @db.Text
+  backupRetentionDays  Int?     @default(7)
+
   updatedAt        DateTime @updatedAt
 }
 

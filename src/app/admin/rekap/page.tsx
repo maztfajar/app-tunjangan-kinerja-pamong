@@ -1,7 +1,27 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
-import { IconFileText, IconCalendar, IconClock, IconUsers, IconCheckCircle, IconClose } from '@/components/ui/Icons';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import {
+  IconFileText,
+  IconCalendar,
+  IconClock,
+  IconUsers,
+  IconCheckCircle,
+  IconClose,
+  IconPrinter,
+  IconDownload,
+  IconChevronDown,
+  IconFileSpreadsheet,
+} from '@/components/ui/Icons';
+import {
+  exportToExcel,
+  exportToCsv,
+  exportToWord,
+  exportToPdfPrint,
+  ExportColumn,
+} from '@/lib/exportHelper';
+import KopSurat from '@/components/cetak/KopSurat';
+import PrintPreviewModal from '@/components/cetak/PrintPreviewModal';
 
 interface Pegawai {
   id: string;
@@ -97,26 +117,45 @@ export default function RekapAdminPage() {
     pegawai: null,
   });
 
+  // State Ekspor & Cetak
+  const [exportDropdownOpen, setExportDropdownOpen] = useState(false);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [printSettings, setPrintSettings] = useState<any>(null);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(event.target as Node)) {
+        setExportDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const [year, month] = useMemo(() => bulan.split('-').map(Number), [bulan]);
 
   // Fetch all required data
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [pegRes, presRes, liburRes] = await Promise.all([
+      const [pegRes, presRes, liburRes, settingsRes] = await Promise.all([
         fetch('/api/pegawai'),
         fetch(`/api/presensi?all=true&bulan=${bulan}`),
         fetch(`/api/hari-libur?tahun=${year}&bulan=${month}`),
+        fetch('/api/settings'),
       ]);
 
       const pegData = await pegRes.json();
       const presData = await presRes.json();
       const liburData = await liburRes.json();
+      const settingsData = await settingsRes.json();
 
       setPegawaiList(pegData.pegawai || []);
       setPresensiList(presData.presensi || []);
       setHariLibur(liburData.hariLibur || []);
       if (presData.jamKerja) setJamKerja(presData.jamKerja);
+      if (settingsData.settings) setPrintSettings(settingsData.settings);
     } catch (err) {
       console.error('Fetch admin rekap error:', err);
     } finally {
@@ -365,8 +404,94 @@ export default function RekapAdminPage() {
   const formatTime = (d: string | null) =>
     d ? new Date(d).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '-';
 
+  const monthNames = [
+    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+  ];
+  const bulanLabel = `${monthNames[month - 1] || ''} ${year}`;
+
+  const exportColumns: ExportColumn[] = [
+    { header: 'No', key: 'no', width: 6, align: 'center' },
+    { header: 'Nama Pamong', key: 'nama', width: 28, align: 'left' },
+    { header: 'Username / NIP', key: 'nip', width: 20, align: 'left' },
+    { header: 'Jabatan', key: 'jabatan', width: 24, align: 'left' },
+    { header: 'Hadir (Hari)', key: 'totalHadir', width: 14, align: 'center' },
+    { header: 'Alpa (Hari)', key: 'tidakHadir', width: 14, align: 'center' },
+    { header: 'Terlambat (Mnt)', key: 'totalTerlambat', width: 18, align: 'center' },
+    { header: 'Mendahului (Mnt)', key: 'totalMendahului', width: 18, align: 'center' },
+    { header: 'Pelanggaran (Mnt)', key: 'totalPelanggaranMenit', width: 20, align: 'center' },
+    { header: 'Jam Kerja Aktual', key: 'durasiKerja', width: 18, align: 'center' },
+    { header: 'Status Kedisiplinan', key: 'kedisiplinanLabel', width: 20, align: 'center' },
+  ];
+
+  const exportRows = useMemo(() => {
+    return filteredData.map((item, idx) => ({
+      no: idx + 1,
+      nama: item.pegawai.nama,
+      nip: item.pegawai.nip,
+      jabatan: item.pegawai.jabatan || 'Pamong',
+      totalHadir: `${item.totalHadir} hr`,
+      tidakHadir: `${item.tidakHadir} hr`,
+      totalTerlambat: `${item.totalTerlambat} mnt`,
+      totalMendahului: `${item.totalMendahului} mnt`,
+      totalPelanggaranMenit: `${item.totalPelanggaranMenit} mnt`,
+      durasiKerja: `${Math.floor(item.totalDurasiKerjaAktual / 60)}j ${item.totalDurasiKerjaAktual % 60}m`,
+      kedisiplinanLabel: item.kedisiplinan.label,
+    }));
+  }, [filteredData]);
+
+  const getKopSettings = () => ({
+    instansi: printSettings?.kopNamaPemda || printSettings?.kopInstansi || 'PEMERINTAH KABUPATEN KULON PROGO',
+    kalurahan: printSettings?.kopNamaInstansi || printSettings?.kopKalurahan || 'KAPANEWON PENGASIH',
+    alamat: printSettings?.kopAlamat || 'Jl. Pengasih No. 2, Pengasih, Kulon Progo, DIY 55652',
+    ttdNama: printSettings?.ttdAtasanNama || 'DJOKO PURWANTO',
+    ttdJabatan: printSettings?.ttdAtasanJabatan || 'Panewu Pengasih',
+    ttdNip: !printSettings?.sembunyikanNipAtasan && printSettings?.ttdAtasanNip ? String(printSettings.ttdAtasanNip) : undefined,
+  });
+
+  const handleExportExcel = () => {
+    setExportDropdownOpen(false);
+    exportToExcel({
+      filename: `Rekap_Presensi_Pamong_${bulan}`,
+      title: 'Rekapitulasi Kehadiran & Kedisiplinan Pamong',
+      subtitle: `Periode: ${bulanLabel}`,
+      columns: exportColumns,
+      rows: exportRows,
+    });
+  };
+
+  const handleExportCsv = () => {
+    setExportDropdownOpen(false);
+    exportToCsv({
+      filename: `Rekap_Presensi_Pamong_${bulan}`,
+      title: 'Rekapitulasi Kehadiran & Kedisiplinan Pamong',
+      subtitle: `Periode: ${bulanLabel}`,
+      columns: exportColumns,
+      rows: exportRows,
+    });
+  };
+
+  const handleExportWord = () => {
+    setExportDropdownOpen(false);
+    exportToWord({
+      filename: `Rekap_Presensi_Pamong_${bulan}`,
+      title: 'Rekapitulasi Kehadiran & Kedisiplinan Pamong',
+      subtitle: `Periode: ${bulanLabel}`,
+      columns: exportColumns,
+      rows: exportRows,
+      kopSettings: getKopSettings(),
+    });
+  };
+
+  const handlePrint = () => {
+    setExportDropdownOpen(false);
+    exportToPdfPrint(`Rekap_Presensi_Pamong_${bulan}`);
+  };
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
+    <>
+      {/* AREA TAMPILAN INTERAKTIF LAYAR (DISEMBUNYIKAN SAAT CETAK / NO-PRINT) */}
+      <div className="no-print" style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
       {/* Header & Month Filter */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
         <div>
@@ -378,17 +503,224 @@ export default function RekapAdminPage() {
           </p>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <label className="input-label" style={{ marginBottom: 0, color: '#334155', fontWeight: '700' }}>
-            Periode Bulan:
-          </label>
-          <input
-            type="month"
-            className="input-field"
-            value={bulan}
-            onChange={(e) => setBulan(e.target.value)}
-            style={{ width: '180px', background: '#ffffff', color: '#0f172a', fontWeight: '600' }}
-          />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <label className="input-label" style={{ marginBottom: 0, color: '#334155', fontWeight: '700' }}>
+              Periode:
+            </label>
+            <input
+              type="month"
+              className="input-field"
+              value={bulan}
+              onChange={(e) => setBulan(e.target.value)}
+              style={{ width: '165px', background: '#ffffff', color: '#0f172a', fontWeight: '600' }}
+            />
+          </div>
+
+          {/* Tombol Pratinjau Cetak (Live Preview Modal) */}
+          <button
+            type="button"
+            onClick={() => setShowPreviewModal(true)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 14px',
+              borderRadius: '8px',
+              border: '1.5px solid #6366f1',
+              background: '#eef2ff',
+              color: '#4338ca',
+              fontSize: '13px',
+              fontWeight: '700',
+              cursor: 'pointer',
+              boxShadow: '0 1px 3px rgba(99,102,241,0.15)',
+              transition: 'all 0.15s ease',
+            }}
+            title="Lihat Pratinjau Lembar Cetak Ber-KOP Resmi"
+          >
+            <span>📄 Pratinjau Cetak</span>
+          </button>
+
+          {/* Tombol Cetak Dokumen */}
+          <button
+            type="button"
+            onClick={handlePrint}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 14px',
+              borderRadius: '8px',
+              border: '1.5px solid #2563eb',
+              background: '#2563eb',
+              color: '#ffffff',
+              fontSize: '13px',
+              fontWeight: '700',
+              cursor: 'pointer',
+              boxShadow: '0 2px 4px rgba(37,99,235,0.2)',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <IconPrinter size={16} />
+            <span>Cetak</span>
+          </button>
+
+          {/* Tombol Ekspor dengan Dropdown Format */}
+          <div style={{ position: 'relative' }} ref={exportMenuRef}>
+            <button
+              type="button"
+              onClick={() => setExportDropdownOpen((prev) => !prev)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 14px',
+                borderRadius: '8px',
+                border: '1.5px solid #059669',
+                background: '#059669',
+                color: '#ffffff',
+                fontSize: '13px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                boxShadow: '0 2px 4px rgba(5,150,105,0.2)',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <IconDownload size={16} />
+              <span>Ekspor</span>
+              <IconChevronDown size={14} />
+            </button>
+
+            {exportDropdownOpen && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 'calc(100% + 6px)',
+                  right: 0,
+                  width: '210px',
+                  background: '#ffffff',
+                  borderRadius: '10px',
+                  boxShadow: '0 10px 25px -5px rgba(0,0,0,0.15), 0 8px 10px -6px rgba(0,0,0,0.1)',
+                  border: '1px solid #e2e8f0',
+                  padding: '6px',
+                  zIndex: 50,
+                  animation: 'fadeIn 0.15s ease',
+                }}
+              >
+                <div style={{ padding: '6px 10px', fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Pilih Format Unduhan
+                </div>
+                <button
+                  type="button"
+                  onClick={handleExportExcel}
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    padding: '8px 10px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    background: 'transparent',
+                    color: '#0f172a',
+                    fontSize: '13px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = '#f1f5f9')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                >
+                  <span style={{ fontSize: '16px' }}>📊</span>
+                  <div>
+                    <div>Excel (.xlsx)</div>
+                    <div style={{ fontSize: '10.5px', color: '#64748b', fontWeight: '400' }}>Lembar Kerja Spreadsheet</div>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExportCsv}
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    padding: '8px 10px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    background: 'transparent',
+                    color: '#0f172a',
+                    fontSize: '13px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = '#f1f5f9')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                >
+                  <span style={{ fontSize: '16px' }}>📑</span>
+                  <div>
+                    <div>CSV (.csv)</div>
+                    <div style={{ fontSize: '10.5px', color: '#64748b', fontWeight: '400' }}>Format Standar Teks</div>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExportWord}
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    padding: '8px 10px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    background: 'transparent',
+                    color: '#0f172a',
+                    fontSize: '13px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = '#f1f5f9')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                >
+                  <span style={{ fontSize: '16px' }}>📝</span>
+                  <div>
+                    <div>Word (.doc)</div>
+                    <div style={{ fontSize: '10.5px', color: '#64748b', fontWeight: '400' }}>Dokumen Resmi Ber-KOP</div>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={handlePrint}
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    padding: '8px 10px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    background: 'transparent',
+                    color: '#0f172a',
+                    fontSize: '13px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = '#f1f5f9')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                >
+                  <span style={{ fontSize: '16px' }}>📄</span>
+                  <div>
+                    <div>PDF / Cetak</div>
+                    <div style={{ fontSize: '10.5px', color: '#64748b', fontWeight: '400' }}>Simpan PDF / Print out</div>
+                  </div>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -1062,6 +1394,150 @@ export default function RekapAdminPage() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+
+      {/* ========================================================
+          AREA KHUSUS CETAK DOKUMEN (PRINT-ONLY)
+          Hanya tampil saat print out / save as PDF di browser
+          ======================================================== */}
+      <div className="print-only print-document" style={{ color: '#000000', fontFamily: "'Times New Roman', Times, serif" }}>
+        {/* KOP Surat Resmi Standar Format Laporan */}
+        <KopSurat settings={printSettings} mode="print" />
+
+        {/* Judul Dokumen */}
+        <div style={{ textAlign: 'center', marginBottom: '14px' }}>
+          <div style={{ fontSize: '13pt', fontWeight: 'bold', textTransform: 'uppercase' }}>
+            REKAPITULASI KEHADIRAN DAN KEDISIPLINAN PAMONG
+          </div>
+          <div style={{ fontSize: '11pt', marginTop: '2px' }}>
+            Periode: <strong>{bulanLabel}</strong>
+          </div>
+        </div>
+
+        {/* Tabel Data Cetak */}
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9.5pt', marginBottom: '20px' }}>
+          <thead>
+            <tr style={{ background: '#f1f5f9' }}>
+              <th style={{ border: '1px solid #000', padding: '6px 4px', textAlign: 'center', width: '32px' }}>No</th>
+              <th style={{ border: '1px solid #000', padding: '6px 8px', textAlign: 'left' }}>Nama Pamong</th>
+              <th style={{ border: '1px solid #000', padding: '6px 6px', textAlign: 'left' }}>Username/NIP</th>
+              <th style={{ border: '1px solid #000', padding: '6px 8px', textAlign: 'left' }}>Jabatan</th>
+              <th style={{ border: '1px solid #000', padding: '6px 4px', textAlign: 'center', width: '50px' }}>Hadir</th>
+              <th style={{ border: '1px solid #000', padding: '6px 4px', textAlign: 'center', width: '50px' }}>Alpa</th>
+              <th style={{ border: '1px solid #000', padding: '6px 6px', textAlign: 'center' }}>Terlambat</th>
+              <th style={{ border: '1px solid #000', padding: '6px 6px', textAlign: 'center' }}>Mendahului</th>
+              <th style={{ border: '1px solid #000', padding: '6px 6px', textAlign: 'center' }}>Pelanggaran</th>
+              <th style={{ border: '1px solid #000', padding: '6px 6px', textAlign: 'center' }}>Kedisiplinan</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredData.map((item, idx) => (
+              <tr key={item.pegawai.id}>
+                <td style={{ border: '1px solid #000', padding: '5px 4px', textAlign: 'center' }}>{idx + 1}</td>
+                <td style={{ border: '1px solid #000', padding: '5px 8px', fontWeight: 'bold' }}>{item.pegawai.nama}</td>
+                <td style={{ border: '1px solid #000', padding: '5px 6px', fontFamily: 'monospace' }}>{item.pegawai.nip}</td>
+                <td style={{ border: '1px solid #000', padding: '5px 8px' }}>{item.pegawai.jabatan || 'Pamong'}</td>
+                <td style={{ border: '1px solid #000', padding: '5px 4px', textAlign: 'center' }}>{item.totalHadir} hr</td>
+                <td style={{ border: '1px solid #000', padding: '5px 4px', textAlign: 'center' }}>{item.tidakHadir} hr</td>
+                <td style={{ border: '1px solid #000', padding: '5px 6px', textAlign: 'center' }}>{item.totalTerlambat} mnt</td>
+                <td style={{ border: '1px solid #000', padding: '5px 6px', textAlign: 'center' }}>{item.totalMendahului} mnt</td>
+                <td style={{ border: '1px solid #000', padding: '5px 6px', textAlign: 'center' }}>{item.totalPelanggaranMenit} mnt</td>
+                <td style={{ border: '1px solid #000', padding: '5px 6px', textAlign: 'center', fontWeight: 'bold' }}>{item.kedisiplinan.label}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        {/* Tanda Tangan Atasan */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '30px' }}>
+          <div style={{ textAlign: 'center', minWidth: '220px' }}>
+            <p style={{ margin: '0 0 2px 0', fontSize: '10pt' }}>
+              {printSettings?.ttdTempat || 'Pengasih'}, {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+            </p>
+            <p style={{ margin: '0 0 2px 0', fontSize: '10pt' }}>
+              {printSettings?.ttdAtasanStatus || 'Mengetahui,'}
+            </p>
+            <p style={{ margin: '0 0 54px 0', fontWeight: 'bold', fontSize: '10.5pt' }}>
+              {printSettings?.ttdAtasanJabatan || 'Panewu Pengasih'}
+            </p>
+            <p style={{ margin: 0, fontWeight: 'bold', textDecoration: 'underline', fontSize: '10.5pt' }}>
+              {printSettings?.ttdAtasanNama || 'Drs. H. Sukirno, M.Si'}
+            </p>
+            {!printSettings?.sembunyikanNipAtasan && printSettings?.ttdAtasanNip ? (
+              <p style={{ margin: '2px 0 0 0', fontSize: '9.5pt' }}>
+                NIP. {String(printSettings.ttdAtasanNip)}
+              </p>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      {/* MODAL PRATINJAU CETAK (LIVE PREVIEW SESUAI TEMPLATE SUPERADMIN) */}
+      <PrintPreviewModal
+        isOpen={showPreviewModal}
+        onClose={() => setShowPreviewModal(false)}
+        onPrint={handlePrint}
+        title="REKAPITULASI KEHADIRAN DAN KEDISIPLINAN PAMONG"
+        subtitle={`Periode: ${bulanLabel}`}
+        settings={printSettings}
+        customTtd={
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '28px', fontSize: '10pt', pageBreakInside: 'avoid' }}>
+            <div style={{ textAlign: 'center', minWidth: '220px' }}>
+              <p style={{ margin: 0 }}>
+                {printSettings?.ttdTempat || 'Pengasih'}, {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+              </p>
+              <p style={{ margin: '2px 0 0', fontSize: '10pt' }}>
+                {printSettings?.ttdAtasanStatus || 'Mengetahui,'}
+              </p>
+              <p style={{ margin: '2px 0 0', fontWeight: 'bold' }}>
+                {printSettings?.ttdAtasanJabatan || 'Panewu Pengasih'}
+              </p>
+              <div style={{ height: '50px' }} />
+              <p style={{ margin: 0, fontWeight: 'bold', textDecoration: 'underline' }}>
+                {printSettings?.ttdAtasanNama || 'Drs. H. Sukirno, M.Si'}
+              </p>
+              {!printSettings?.sembunyikanNipAtasan && printSettings?.ttdAtasanNip ? (
+                <p style={{ margin: '2px 0 0', fontSize: '9pt' }}>
+                  NIP. {String(printSettings.ttdAtasanNip)}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        }
+      >
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9pt', marginBottom: '14px' }}>
+          <thead>
+            <tr style={{ background: '#f1f5f9' }}>
+              <th style={{ border: '1px solid #000', padding: '5px 4px', textAlign: 'center', width: '30px' }}>No</th>
+              <th style={{ border: '1px solid #000', padding: '5px 6px', textAlign: 'left' }}>Nama Pamong</th>
+              <th style={{ border: '1px solid #000', padding: '5px 6px', textAlign: 'left' }}>Username/NIP</th>
+              <th style={{ border: '1px solid #000', padding: '5px 6px', textAlign: 'left' }}>Jabatan</th>
+              <th style={{ border: '1px solid #000', padding: '5px 4px', textAlign: 'center' }}>Hadir</th>
+              <th style={{ border: '1px solid #000', padding: '5px 4px', textAlign: 'center' }}>Alpa</th>
+              <th style={{ border: '1px solid #000', padding: '5px 4px', textAlign: 'center' }}>Terlambat</th>
+              <th style={{ border: '1px solid #000', padding: '5px 4px', textAlign: 'center' }}>Mendahului</th>
+              <th style={{ border: '1px solid #000', padding: '5px 4px', textAlign: 'center' }}>Pelanggaran</th>
+              <th style={{ border: '1px solid #000', padding: '5px 4px', textAlign: 'center' }}>Kedisiplinan</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredData.map((item, idx) => (
+              <tr key={item.pegawai.id}>
+                <td style={{ border: '1px solid #000', padding: '4px 3px', textAlign: 'center' }}>{idx + 1}</td>
+                <td style={{ border: '1px solid #000', padding: '4px 6px', fontWeight: 'bold' }}>{item.pegawai.nama}</td>
+                <td style={{ border: '1px solid #000', padding: '4px 6px', fontFamily: 'monospace' }}>{item.pegawai.nip}</td>
+                <td style={{ border: '1px solid #000', padding: '4px 6px' }}>{item.pegawai.jabatan || 'Pamong'}</td>
+                <td style={{ border: '1px solid #000', padding: '4px 3px', textAlign: 'center' }}>{item.totalHadir} hr</td>
+                <td style={{ border: '1px solid #000', padding: '4px 3px', textAlign: 'center' }}>{item.tidakHadir} hr</td>
+                <td style={{ border: '1px solid #000', padding: '4px 4px', textAlign: 'center' }}>{item.totalTerlambat} mnt</td>
+                <td style={{ border: '1px solid #000', padding: '4px 4px', textAlign: 'center' }}>{item.totalMendahului} mnt</td>
+                <td style={{ border: '1px solid #000', padding: '4px 4px', textAlign: 'center' }}>{item.totalPelanggaranMenit} mnt</td>
+                <td style={{ border: '1px solid #000', padding: '4px 4px', textAlign: 'center', fontWeight: 'bold' }}>{item.kedisiplinan.label}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </PrintPreviewModal>
+    </>
   );
 }
